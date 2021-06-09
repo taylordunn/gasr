@@ -1,13 +1,14 @@
 Package: gasr
-Title: What the Package Does (One Line, Title Case)
-Version: 0.0.0.9000
+Title: Simulate and Analyze Goal Attainment Scaling Data
+Version: 0.1.0
 Authors@R: 
-    person(given = "First",
-           family = "Last",
+    person(given = "Taylor",
+           family = "Dunn",
            role = c("aut", "cre"),
-           email = "first.last@example.com",
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
+           email = "taylor.dunn@ardeaoutcomes.com",
+           comment = c(ORCID = "0000-0001-8042-1611"))
+Description: Provides R functions for simulating and analyzing cross-sectional
+  and time-varying goal attainment scaling data.
 License: MIT + file LICENSE
 Suggests: 
     testthat (>= 3.0.0)
@@ -22,4 +23,6 @@ Imports:
     dplyr,
     purrr,
     magrittr,
-    stringr
+    stringr,
+    tibble,
+    rlang
