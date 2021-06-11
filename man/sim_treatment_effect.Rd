@@ -16,5 +16,31 @@ The same \code{goals} dataframe with the added \code{treatment_fe} column.
 }
 \description{
 Currently only simulates a uniform distribution of treatment effects,
-regardless of group allocation
+regardless of group allocation.
+}
+\examples{
+library(dplyr)
+library(tidyr)
+library(purrr)
+
+# Generate some subjects and goals
+d <- sim_subjects(n_subjects = 40) \%>\%
+  sim_goals(n_goals_range = c(1, 3))
+
+# Apply treatment effects in one of two ways
+# Using purrr::map()
+d \%>\%
+  mutate(
+    goals = map(
+      goals,
+      ~sim_treatment_effect(., delta = 0.4)
+    )
+  )
+
+# Or using tidyr::unnest() on the goals column
+d \%>\%
+  unnest(goals) \%>\%
+  group_by(subject_id) \%>\%
+  sim_treatment_effect(delta = 0.4)
+
 }

@@ -31,15 +31,90 @@ remotes::install_github("taylordunn/gasr")
 
 ## Example
 
-This is a basic example which shows you how to solve a common problem:
+The data simulation process is modularized as follows:
 
-```{r example}
+1. Simulate a number of subjects and assign to groups with `sim_subjects()`.
+2. For each subject, simulate a number of goals with `sim_goals()`.
+3. For each subject goal, simulate a treatment effect with `sim_treatment_effect()`.
+4. For each goal, simulate a goal weight with `sim_goal_weights()`.
+
+For example, simulate 50 subjects, randomly allocated to "treatment" and "control" groups with equal probability:
+
+```{r example_sim_subjects}
 library(gasr)
-## basic example code
+library(tidyverse, quietly = TRUE)
+
+gas_data <- sim_subjects(
+  n_subjects = 50,
+  group_allocation = list(control = 0.5, treatment = 0.5)
+)
+glimpse(gas_data)
 ```
+
+Add between 3 and 6 goals to each subject:
+
+```{r example_sim_goals}
+gas_data <- gas_data %>%
+  sim_goals(n_goals_range = c(3, 6))
+glimpse(gas_data)
+```
+
+Note that `goals` is returned as a list column, so that the data frame keeps the same number of rows (one row per subject).
+The goals can be unnested with `tidyr` to return a data frame with one row per goal:
 
 ```{r}
-simulate_subjects() %>%
-  simulate_goals(n_goals = seq(3, 6))
+gas_data %>%
+  unnest(goals) %>%
+  glimpse()
 ```
+
+A randomly sampled treatment effect can be added to each goal.
+This function can be applied two ways.
+Method A keeps the data nested, and applies the function to the `goals` list column using `purrr`:
+
+```{r example_sim_treatment_effect_a}
+set.seed(2)
+gas_data_nested <- gas_data %>%
+  mutate(
+    goals = map(
+      goals,
+      ~sim_treatment_effect(., delta = 0.2) 
+    )
+  )
+glimpse(gas_data_nested)
+```
+
+Method B is to unnest, group by subject, and apply:
+
+```{r example_sim_treatment_effect_b}
+set.seed(2)
+gas_data <- gas_data %>%
+  unnest(goals) %>%
+  group_by(subject_id) %>%
+  sim_treatment_effect(delta = 0.2) %>%
+  ungroup()
+glimpse(gas_data)
+```
+
+Note that these two methods produce the same results because we gave them the same random seed:
+
+```{r example_sim_treatment_effect, fig.height=2.5}
+bind_rows(
+  A = gas_data_nested %>% unnest(goals),
+  B = gas_data,
+  .id = "method"
+) %>%
+  ggplot(aes(x = treatment_fe, y = method)) +
+  geom_violin(draw_quantiles = c(0.25, 0.5, 0.75))
+```
+
+Goal weights are applied the same way as treatment effects:
+
+```{r}
+gas_data <- gas_data %>%
+  group_by(subject_id) %>%
+  sim_goal_weights(weight_type = "preference" )
+```
+
+There are a few different options of goal weights availabile, which are explained in the function documentation (`?sim_goal_weights`).
 

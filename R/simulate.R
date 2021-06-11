@@ -6,7 +6,7 @@
 #'   assignment. By default, will equally allocate subjects to "control" and
 #'   "treatment"
 #'
-#' @return A dataframe with a row for each subject.
+#' @return A data frame with a row for each subject.
 #' @export
 #'
 #' @examples
@@ -46,11 +46,12 @@ sim_subjects <- function(n_subjects = 100, sigma_u = 0.5,
 #'   the random error of each latent goal score.
 #'
 #' @return The same `subjects` dataframe with a `n_goals` column, and
-#'   `goals` list column.
+#'   `goals` list column. The `goals` list column contains tibbles with two
+#'   variables: a subject-specific goal index `goal_num`, and a normally
+#'   distributed random effect `goal_re`.
 #' @export
 #'
 #' @examples
-#'
 #' sim_subjects() %>%
 #'   sim_goals(n_goals = 3, sigma_e = 0.8)
 #'
@@ -101,13 +102,38 @@ sim_goals <- function(subjects, n_goals = NULL, n_goals_range = NULL,
 #' Simulate a treatment effect
 #'
 #' Currently only simulates a uniform distribution of treatment effects,
-#' regardless of group allocation
+#' regardless of group allocation.
 #'
 #' @param goals A dataframe with a row for each goal.
 #' @param delta The size of the treatment effect
 #'
 #' @return The same `goals` dataframe with the added `treatment_fe` column.
 #' @export
+#'
+#' @examples
+#' library(dplyr)
+#' library(tidyr)
+#' library(purrr)
+#'
+#' # Generate some subjects and goals
+#' d <- sim_subjects(n_subjects = 40) %>%
+#'   sim_goals(n_goals_range = c(1, 3))
+#'
+#' # Apply treatment effects in one of two ways
+#' # Using purrr::map()
+#' d %>%
+#'   mutate(
+#'     goals = map(
+#'       goals,
+#'       ~sim_treatment_effect(., delta = 0.4)
+#'     )
+#'   )
+#'
+#' # Or using tidyr::unnest() on the goals column
+#' d %>%
+#'   unnest(goals) %>%
+#'   group_by(subject_id) %>%
+#'   sim_treatment_effect(delta = 0.4)
 #'
 #' @importFrom dplyr mutate n
 #' @importFrom stats runif
@@ -116,4 +142,76 @@ sim_treatment_effect <- function(goals, delta = 0.3) {
     dplyr::mutate(
       treatment_fe = runif(dplyr::n(), 0, 2 * delta)
     )
+}
+
+#' Simulate goal weights
+#'
+#' Adds numeric weights to a set of goals (usually a single subject's set of
+#' goals).
+#'
+#' There are a set of valid options to the `weight_type` argument, including
+#' "unweighted", "preference", and "treatment".
+#' The "unweighted" type is the default and is the simplest:
+#' it sets all goal weights to 1.
+#' The "preference" type randomly randomly samples (without replacement)
+#' integer weights from 1 to `n`. For instance, a subject with `n` = 3 goals
+#' will have weights 1, 2, and 3 randomly assigned to their goals.
+#' The "treatment" type computes a weight biased by the treatment effect, and
+#' so requires a numeric `treatment_fe` column. These weights are calculated
+#' as `n * treatment_fe / sum(treatment_fe)`.
+#'
+#' @param goals A dataframe with a row for each goal.
+#' @param weight_type The type of weights to apply. See 'Details'.
+#'
+#' @return The same `goals` data frame with the added `goal_weight` column.
+#' @export
+#'
+#' @examples
+#' library(dplyr)
+#' library(tidyr)
+#' library(purrr)
+#'
+#' # Generate some subjects and goals
+#' d <- sim_subjects(n_subjects = 40) %>%
+#'   sim_goals(n_goals_range = c(1, 3))
+#'
+#' # Apply weights in one of two ways
+#' # Using purrr::map()
+#' d %>%
+#'   mutate(
+#'     goals = map(
+#'       goals, sim_goal_weights
+#'     )
+#'   )
+#' # Or using tidyr::unnest() on the goals column
+#' d %>%
+#'   unnest(goals) %>%
+#'   group_by(subject_id) %>%
+#'   sim_goal_weights(weight_type = "preference")
+#'
+#' # The "treatment" goal weights require a treatment_fe column
+#' d %>%
+#'   unnest(goals) %>%
+#'   group_by(subject_id) %>%
+#'   sim_treatment_effect(delta = 0.4) %>%
+#'   sim_goal_weights(weight_type = "treatment")
+#' @importFrom dplyr mutate n
+#' @importFrom rlang .data
+sim_goal_weights <- function(
+  goals,
+  weight_type = c("unweighted", "preference", "treatment")
+) {
+  weight_type <- match.arg(weight_type)
+
+  goals %>%
+    dplyr::mutate(
+      goal_weight = if (weight_type == "unweighted") {
+        1.0
+      } else if (weight_type == "preference") {
+        sample(1:dplyr::n(), dplyr::n(), replace = FALSE)
+      } else if (weight_type == "treatment") {
+        dplyr::n() * .data$treatment_fe / sum(.data$treatment_fe)
+      }
+    )
+
 }

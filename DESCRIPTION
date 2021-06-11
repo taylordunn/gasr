@@ -1,6 +1,6 @@
 Package: gasr
 Title: Simulate and Analyze Goal Attainment Scaling Data
-Version: 0.1.0
+Version: 0.2.0
 Authors@R: 
     person(given = "Taylor",
            family = "Dunn",
@@ -19,10 +19,13 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.1
 URL: https://github.com/taylordunn/gasr
 BugReports: https://github.com/taylordunn/gasr/issues
+RdMacros: Rdpack
 Imports: 
     dplyr,
     purrr,
     magrittr,
     stringr,
     tibble,
-    rlang
+    rlang,
+    tidyr,
+    Rdpack

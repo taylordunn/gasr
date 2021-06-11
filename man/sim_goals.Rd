@@ -31,13 +31,14 @@ the random error of each latent goal score.}
 }
 \value{
 The same \code{subjects} dataframe with a \code{n_goals} column, and
-\code{goals} list column.
+\code{goals} list column. The \code{goals} list column contains tibbles with two
+variables: a subject-specific goal index \code{goal_num}, and a normally
+distributed random effect \code{goal_re}.
 }
 \description{
 Simulate goals
 }
 \examples{
-
 sim_subjects() \%>\%
   sim_goals(n_goals = 3, sigma_e = 0.8)
 

@@ -20,7 +20,7 @@ assignment. By default, will equally allocate subjects to "control" and
 "treatment"}
 }
 \value{
-A dataframe with a row for each subject.
+A data frame with a row for each subject.
 }
 \description{
 Simulate subjects
