@@ -1,5 +1,8 @@
 #' Simulate subjects
 #'
+#' Simulate a number of subjects with subject-level random effects, and randomly
+#' assign them to groups.
+#'
 #' @param n_subjects Number of subjects.
 #' @param sigma_u Standard deviation of the subject-level random effect.
 #' @param group_allocation A named list of groups and their probability of
@@ -33,19 +36,24 @@ sim_subjects <- function(n_subjects = 100, sigma_u = 0.5,
 
 #' Simulate goals
 #'
-#' @param subjects A dataframe with a row per subject.
+#' For each subject, simulate a specified number of goals. There are three
+#' options for defining the number of goals: `n_goals` sets the same number
+#' for each subject, `n_goals_range` sets the minimum and maximum number,
+#' and `n_goals_prob` sets specific probabilities for each number.
+#'
+#' @param subjects A data frame with a row per subject.
 #' @param n_goals The exact number of goals for each subject.
 #' @param n_goals_range A vector defining the minimum and maximum number of
 #'   goals per subjects. Randomly samples the range of goals with uniform
-#'   probbility.
+#'   probability.
 #' @param n_goals_prob A named list with element `n_goals` defining the possible
 #'   numbers of goals, and element `prob` defining the probabilities of getting
 #'   each number. For example:
-#'   `n_goals_prob = list(n_goals = 1:3, probs = c(0.3, 0.3, 0.4`.
+#'   `n_goals_prob = list(n_goals = 1:3, probs = c(0.3, 0.3, 0.4)`.
 #' @param sigma_e Standard deviation of the goal-level random effect, i.e.
 #'   the random error of each latent goal score.
 #'
-#' @return The same `subjects` dataframe with a `n_goals` column, and
+#' @return The same `subjects` data frame with a `n_goals` column, and
 #'   `goals` list column. The `goals` list column contains tibbles with two
 #'   variables: a subject-specific goal index `goal_num`, and a normally
 #'   distributed random effect `goal_re`.
@@ -104,10 +112,10 @@ sim_goals <- function(subjects, n_goals = NULL, n_goals_range = NULL,
 #' Currently only simulates a uniform distribution of treatment effects,
 #' regardless of group allocation.
 #'
-#' @param goals A dataframe with a row for each goal.
-#' @param delta The size of the treatment effect
+#' @param goals A data frame with a row for each goal.
+#' @param delta The size of the treatment effect.
 #'
-#' @return The same `goals` dataframe with the added `treatment_fe` column.
+#' @return The same `goals` data frame with the added `treatment_fe` column.
 #' @export
 #'
 #' @examples
@@ -149,7 +157,7 @@ sim_treatment_effect <- function(goals, delta = 0.3) {
 #' Adds numeric weights to a set of goals (usually a single subject's set of
 #' goals).
 #'
-#' There are a set of valid options to the `weight_type` argument, including
+#' There are a few valid options to the `weight_type` argument, including
 #' "unweighted", "preference", and "treatment".
 #' The "unweighted" type is the default and is the simplest:
 #' it sets all goal weights to 1.
@@ -160,7 +168,7 @@ sim_treatment_effect <- function(goals, delta = 0.3) {
 #' so requires a numeric `treatment_fe` column. These weights are calculated
 #' as `n * treatment_fe / sum(treatment_fe)`.
 #'
-#' @param goals A dataframe with a row for each goal.
+#' @param goals A data frame with a row for each goal.
 #' @param weight_type The type of weights to apply. See 'Details'.
 #'
 #' @return The same `goals` data frame with the added `goal_weight` column.
@@ -214,4 +222,48 @@ sim_goal_weights <- function(
       }
     )
 
+}
+
+#' Simulate a single cross-sectional trial
+#'
+#' @return A data frame with a row per trial (numbered 1 to `n_sim`) which c
+#'   list column` data` containing the simulated data.
+#' @export
+#'
+#' @inheritParams sim_subjects
+#' @inheritParams sim_goals
+#' @inheritParams sim_treatment_effect
+#' @inheritParams sim_goal_weights
+#' @inheritParams create_thresholds
+#' @importFrom dplyr mutate group_by ungroup
+#' @importFrom tidyr unnest
+#' @importFrom rlang .data
+sim_trial <- function(
+  n_subjects = 40, sigma_u = 0.5,
+  group_allocation =  list("control" = 0.5, "treatment" = 0.5),
+  n_goals = NULL, n_goals_range = c(3, 6), n_goals_prob = NULL,
+  sigma_e = 0.5, delta = 0.3, weight_type = "unweighted",
+  levels = 5, centre = 0
+) {
+  if (!is.null(n_goals) | !is.null(n_goals_prob)) {
+    n_goals_range <- NULL
+  }
+
+  thresh <- create_thresholds(levels, centre)
+
+  sim_subjects(n_subjects, sigma_u, group_allocation) %>%
+    sim_goals(n_goals, n_goals_range, n_goals_prob, sigma_e) %>%
+    tidyr::unnest(.data$goals) %>%
+    dplyr::group_by(.data$subject_id) %>%
+    sim_treatment_effect(delta) %>%
+    sim_goal_weights(weight_type) %>%
+    dplyr::mutate(
+      score_continuous = ifelse(.data$group == "treatment",
+                                .data$treatment_fe, 0) +
+        .data$subject_re + .data$goal_re,
+      score_discrete = discretize_from_thresholds(.data$score_continuous,
+                                                  thresh),
+      tscore = calc_tscore(.data$score_discrete, .data$goal_weight)
+    ) %>%
+    dplyr::ungroup()
 }

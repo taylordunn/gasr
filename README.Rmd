@@ -1,5 +1,6 @@
 ---
 output: github_document
+bibliography: inst/REFERENCES.bib
 ---
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
@@ -29,7 +30,7 @@ R functions for working with and simulating goal attainment scaling data.
 remotes::install_github("taylordunn/gasr")
 ```
 
-## Example
+## Simulating data
 
 The data simulation process is modularized as follows:
 
@@ -37,10 +38,12 @@ The data simulation process is modularized as follows:
 2. For each subject, simulate a number of goals with `sim_goals()`.
 3. For each subject goal, simulate a treatment effect with `sim_treatment_effect()`.
 4. For each goal, simulate a goal weight with `sim_goal_weights()`.
+5. Get continuous latent goal scores by adding up the fixed and random effects.
+6. Get discrete observed goal scores by applying thresholds with `discretize_from_thresholds()`.
 
 For example, simulate 50 subjects, randomly allocated to "treatment" and "control" groups with equal probability:
 
-```{r example_sim_subjects}
+```{r sim_subjects}
 library(gasr)
 library(tidyverse, quietly = TRUE)
 
@@ -53,7 +56,7 @@ glimpse(gas_data)
 
 Add between 3 and 6 goals to each subject:
 
-```{r example_sim_goals}
+```{r sim_goals}
 gas_data <- gas_data %>%
   sim_goals(n_goals_range = c(3, 6))
 glimpse(gas_data)
@@ -72,7 +75,7 @@ A randomly sampled treatment effect can be added to each goal.
 This function can be applied two ways.
 Method A keeps the data nested, and applies the function to the `goals` list column using `purrr`:
 
-```{r example_sim_treatment_effect_a}
+```{r sim_treatment_effect_a}
 set.seed(2)
 gas_data_nested <- gas_data %>%
   mutate(
@@ -86,7 +89,7 @@ glimpse(gas_data_nested)
 
 Method B is to unnest, group by subject, and apply:
 
-```{r example_sim_treatment_effect_b}
+```{r sim_treatment_effect_b}
 set.seed(2)
 gas_data <- gas_data %>%
   unnest(goals) %>%
@@ -98,7 +101,7 @@ glimpse(gas_data)
 
 Note that these two methods produce the same results because we gave them the same random seed:
 
-```{r example_sim_treatment_effect, fig.height=2.5}
+```{r sim_treatment_effect, fig.height=2.5}
 bind_rows(
   A = gas_data_nested %>% unnest(goals),
   B = gas_data,
@@ -110,11 +113,165 @@ bind_rows(
 
 Goal weights are applied the same way as treatment effects:
 
-```{r}
+```{r sim_goal_weights1}
 gas_data <- gas_data %>%
   group_by(subject_id) %>%
-  sim_goal_weights(weight_type = "preference" )
+  sim_goal_weights(weight_type = "preference" ) %>%
+  ungroup()
+glimpse(gas_data)
 ```
 
-There are a few different options of goal weights availabile, which are explained in the function documentation (`?sim_goal_weights`).
+There are a few different options of goal weights available, which are explained in the function documentation (`?sim_goal_weights`).
+The "preference" weights here randomly apply integer weights from 1 to the number of goals per subject.
+For instance, this subject with `r sum(gas_data$subject_id == "S01")` goals:
 
+```{r sim_goal_weights2}
+gas_data %>%
+  filter(subject_id == "S01") %>%
+  select(n_goals, goal_num, goal_weight)
+```
+
+The next step is to apply all of the fixed and random effects to get a total latent score for each goal:
+
+```{r score_continuous, fig.height=2.5, fig.width=5}
+gas_data <- gas_data %>%
+  mutate(
+    score_continuous = ifelse(group == "treatment", treatment_fe, 0) +
+      subject_re + goal_re
+  )
+glimpse(gas_data)
+
+gas_data %>%
+  ggplot(aes(y = group, x = score_continuous, color = group)) +
+  geom_jitter(width = 0, height = 0.2, alpha = 0.2) +
+  geom_boxplot(outlier.shape = NA, fill = NA, width = 0.2, size = 1) +
+  theme(legend.position = "none")
+```
+
+As a latent variable, this continuous score is not actually measured.
+Rather a discretized goal score (usually a 5-point scale) is the observed variable.
+Use the `create_thresholds()` function to create equally spaced thresholds on the latent variable score:
+
+```{r create_thresholds}
+thresh <- create_thresholds(levels = 5)
+thresh
+```
+
+Then apply those weights manually with `cut()`, or with the convenience function `discretize_from_thresholds()`:
+
+```{r score_discrete, fig.height=2.5, fig.width=5}
+gas_data <- gas_data %>%
+  mutate(
+    score_discrete = discretize_from_thresholds(score_continuous, thresh)
+  )
+gas_data %>%
+  ggplot(aes(x = score_discrete, fill = group)) +
+  geom_bar(position = "dodge")
+```
+
+There is then a `calc_score()` function to compute an aggregate goal score based on the formula proposed by [@Kiresuk1968]:
+
+```{r tscore, fig.height=2.5, fig.width=5}
+gas_data <- gas_data %>%
+  group_by(subject_id) %>%
+  mutate(tscore = calc_tscore(score_discrete, goal_weight)) %>%
+  ungroup()
+gas_data %>%
+  ggplot(aes(y = group, x = tscore, color = group)) +
+  geom_jitter(width = 0, height = 0.2, alpha = 0.2) +
+  geom_boxplot(outlier.shape = NA, fill = NA, width = 0.2, size = 1) +
+  theme(legend.position = "none") +
+  geom_vline(xintercept = 50)
+```
+
+All of these steps are packaged into a function with sensible defaults which simulates a single trial:
+
+```{r sim_trial1}
+d <- sim_trial()
+glimpse(d)
+```
+
+Those defaults are listed below:
+
+```{r sim_trial2}
+formals(sim_trial)
+```
+
+## Simulation workflow
+
+The recommended workflow for running many simulations of GAS trials is as follows:
+
+1. Choose your trial parameters
+    * Number of subjects `n_subjects`
+    * Group allocation `group_allocation`
+    * Treatment effect `delta`
+2. Choose GAS parameters
+    * Number of goals per subject: `n_goals`, `n_goals_range`, or `n_goals_prob`
+    * Goal weights `weight_type`
+3. Choose simulation parameters
+    * Random seed via `set.seed()`
+    * Number of trials to simulate `n_sim`
+
+For the first two steps, the `sim_trial()` function can be used as a shortcut.
+For instance, if we want to simulate 20 subjects with 3 goals and a treatment effect of 0.5:
+
+```{r sim_trial3}
+sim_trial(n_subjects = 20, n_goals = 3, delta = 0.5) %>%
+  glimpse()
+```
+
+To incorporate the third step, it is recommended to write a custom function.
+For example, if we just want to vary the number of subjects and the treatment effect (leaving all other options the same/default):
+
+```{r run_simulations1}
+run_simulations <- function(seed, n_sim, n_subjects, delta) {
+  set.seed(seed)
+  
+  tibble(
+    sim = 1:n_sim,
+  ) %>%
+    mutate(
+      data = map(
+        sim,
+        ~sim_trial(n_subjects = n_subjects,
+                   delta = delta)
+      ),
+      seed = seed,
+      n_subjects = n_subjects, delta = delta
+    )
+}
+```
+
+Then we can run 100 simulation with `n_subjects` = 20 and `delta` = 0.3 (and time it with the `tictoc` package):
+
+```{r run_simulation2}
+library(tictoc)
+tic()
+sims1 <- run_simulations(seed = 52, n_sim = 100,
+                         n_subjects = 20, delta = 0.3)
+toc()
+```
+The custom function returns a row per simulation, with the data nested in the `data` column.
+Here is an example of unnesting and plotting the T-scores of the first 10 simulations:
+
+```{r run_simulations3}
+sims1 %>%
+  unnest(data) %>%
+  filter(sim <= 10) %>%
+  distinct(sim, n_subjects, delta,
+           subject_id, group, tscore) %>%
+  ggplot(aes(x = tscore)) +
+  geom_density(aes(fill = group), alpha = 0.5) +
+  geom_vline(xintercept = 50, color = "white") +
+  facet_wrap(~sim, nrow = 2) +
+  theme(axis.ticks.y = element_blank(), axis.text.y = element_blank())
+```
+
+## Todo
+
+* Update documentaiton for `sim_trial`
+* Continue `data-generating-model` vignette
+* Write unit tests
+* Write `power-calculation` vignette
+
+## References

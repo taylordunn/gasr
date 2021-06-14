@@ -1,0 +1,29 @@
+---
+title: "The GAS data generating model"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{The GAS data generating model}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: ../inst/REFERENCES.bib
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(gasr)
+```
+
+With this package, we employ the latent variable approach to generating goal attainment scaling [@Kiresuk1968] data that was introduced by [@Urach2019].
+Here, we walk through some of the theory behind this model and show how it translates to the various R functions, but highly recommend any users to read the paper themselves to better understand the model.
+
+First, we introduce some notation.
+The observed goal score for subject $i$'s goal $j$ is denoted $x_{ij}$, and comes from the discretization
+
+
+## References

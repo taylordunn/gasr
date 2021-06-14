@@ -7,12 +7,12 @@
 sim_treatment_effect(goals, delta = 0.3)
 }
 \arguments{
-\item{goals}{A dataframe with a row for each goal.}
+\item{goals}{A data frame with a row for each goal.}
 
-\item{delta}{The size of the treatment effect}
+\item{delta}{The size of the treatment effect.}
 }
 \value{
-The same \code{goals} dataframe with the added \code{treatment_fe} column.
+The same \code{goals} data frame with the added \code{treatment_fe} column.
 }
 \description{
 Currently only simulates a uniform distribution of treatment effects,

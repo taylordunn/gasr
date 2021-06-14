@@ -13,30 +13,33 @@ sim_goals(
 )
 }
 \arguments{
-\item{subjects}{A dataframe with a row per subject.}
+\item{subjects}{A data frame with a row per subject.}
 
 \item{n_goals}{The exact number of goals for each subject.}
 
 \item{n_goals_range}{A vector defining the minimum and maximum number of
 goals per subjects. Randomly samples the range of goals with uniform
-probbility.}
+probability.}
 
 \item{n_goals_prob}{A named list with element \code{n_goals} defining the possible
 numbers of goals, and element \code{prob} defining the probabilities of getting
 each number. For example:
-\verb{n_goals_prob = list(n_goals = 1:3, probs = c(0.3, 0.3, 0.4}.}
+\verb{n_goals_prob = list(n_goals = 1:3, probs = c(0.3, 0.3, 0.4)}.}
 
 \item{sigma_e}{Standard deviation of the goal-level random effect, i.e.
 the random error of each latent goal score.}
 }
 \value{
-The same \code{subjects} dataframe with a \code{n_goals} column, and
+The same \code{subjects} data frame with a \code{n_goals} column, and
 \code{goals} list column. The \code{goals} list column contains tibbles with two
 variables: a subject-specific goal index \code{goal_num}, and a normally
 distributed random effect \code{goal_re}.
 }
 \description{
-Simulate goals
+For each subject, simulate a specified number of goals. There are three
+options for defining the number of goals: \code{n_goals} sets the same number
+for each subject, \code{n_goals_range} sets the minimum and maximum number,
+and \code{n_goals_prob} sets specific probabilities for each number.
 }
 \examples{
 sim_subjects() \%>\%

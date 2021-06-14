@@ -4,3 +4,6 @@
 .httr-oauth
 .DS_Store
 desktop.ini
+inst/doc
+/doc/
+/Meta/

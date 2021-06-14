@@ -10,7 +10,7 @@ sim_goal_weights(
 )
 }
 \arguments{
-\item{goals}{A dataframe with a row for each goal.}
+\item{goals}{A data frame with a row for each goal.}
 
 \item{weight_type}{The type of weights to apply. See 'Details'.}
 }
@@ -22,7 +22,7 @@ Adds numeric weights to a set of goals (usually a single subject's set of
 goals).
 }
 \details{
-There are a set of valid options to the \code{weight_type} argument, including
+There are a few valid options to the \code{weight_type} argument, including
 "unweighted", "preference", and "treatment".
 The "unweighted" type is the default and is the simplest:
 it sets all goal weights to 1.

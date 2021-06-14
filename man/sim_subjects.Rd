@@ -23,7 +23,8 @@ assignment. By default, will equally allocate subjects to "control" and
 A data frame with a row for each subject.
 }
 \description{
-Simulate subjects
+Simulate a number of subjects with subject-level random effects, and randomly
+assign them to groups.
 }
 \examples{
 sim_subjects(n_subjects = 20)
