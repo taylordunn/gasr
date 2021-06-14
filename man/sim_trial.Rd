@@ -14,7 +14,7 @@ sim_trial(
   sigma_e = 0.5,
   delta = 0.3,
   weight_type = "unweighted",
-  levels = 5,
+  n_levels = 5,
   centre = 0
 )
 }
@@ -45,7 +45,7 @@ the random error of each latent goal score.}
 
 \item{weight_type}{The type of weights to apply. See 'Details'.}
 
-\item{levels}{The number of levels to use. Defaults to the traditional
+\item{n_levels}{The number of levels to use. Defaults to the traditional
 5 levels.}
 
 \item{centre}{The centre of the normal distribution from which the thresholds

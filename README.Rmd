@@ -10,7 +10,8 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
   fig.path = "man/figures/README-",
-  out.width = "100%"
+  out.width = "100%",
+  fig.height = 2.5, fig.width = 5, dpi = 150
 )
 ```
 
@@ -36,7 +37,7 @@ The data simulation process is modularized as follows:
 
 1. Simulate a number of subjects and assign to groups with `sim_subjects()`.
 2. For each subject, simulate a number of goals with `sim_goals()`.
-3. For each subject goal, simulate a treatment effect with `sim_treatment_effect()`.
+3. For each goal, simulate a treatment effect with `sim_treatment_effect()`.
 4. For each goal, simulate a goal weight with `sim_goal_weights()`.
 5. Get continuous latent goal scores by adding up the fixed and random effects.
 6. Get discrete observed goal scores by applying thresholds with `discretize_from_thresholds()`.
@@ -101,7 +102,7 @@ glimpse(gas_data)
 
 Note that these two methods produce the same results because we gave them the same random seed:
 
-```{r sim_treatment_effect, fig.height=2.5}
+```{r sim_treatment_effect}
 bind_rows(
   A = gas_data_nested %>% unnest(goals),
   B = gas_data,
@@ -153,7 +154,7 @@ Rather a discretized goal score (usually a 5-point scale) is the observed variab
 Use the `create_thresholds()` function to create equally spaced thresholds on the latent variable score:
 
 ```{r create_thresholds}
-thresh <- create_thresholds(levels = 5)
+thresh <- create_thresholds(n_levels = 5)
 thresh
 ```
 
@@ -233,8 +234,7 @@ run_simulations <- function(seed, n_sim, n_subjects, delta) {
     mutate(
       data = map(
         sim,
-        ~sim_trial(n_subjects = n_subjects,
-                   delta = delta)
+        ~sim_trial(n_subjects = n_subjects, delta = delta)
       ),
       seed = seed,
       n_subjects = n_subjects, delta = delta
@@ -269,7 +269,7 @@ sims1 %>%
 
 ## Todo
 
-* Update documentaiton for `sim_trial`
+* Update documentation for `sim_trial`
 * Continue `data-generating-model` vignette
 * Write unit tests
 * Write `power-calculation` vignette

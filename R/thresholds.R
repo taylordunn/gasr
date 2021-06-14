@@ -12,19 +12,19 @@
 #' @references
 #' \insertRef{Urach2019}{gasr}
 #'
-#' @param levels The number of levels to use. Defaults to the traditional
+#' @param n_levels The number of levels to use. Defaults to the traditional
 #'   5 levels.
 #' @param centre The centre of the normal distribution from which the thresholds
 #'   are taken. See 'Details'.
 #'
-#' @return A numeric vector of thresholds with `levels + 1` values. The first
+#' @return A numeric vector of thresholds with `n_levels + 1` values. The first
 #'   value will be `-Inf`, and the last `Inf`, so that extremely small or large
 #'   values can still be discretized.
 #' @export
 #'
 #' @examples
 #' create_thresholds()
-#' create_thresholds(levels = 3)
+#' create_thresholds(n_levels = 3)
 #'
 #' # Make goals slightly easier by shifting the thresholds left
 #' create_thresholds(centre = -0.2)
@@ -33,14 +33,14 @@
 #'
 #' @importFrom Rdpack reprompt
 #' @importFrom stats qnorm
-create_thresholds <- function(levels = 5, centre = 0) {
-  if (levels %% 2 == 0) {
+create_thresholds <- function(n_levels = 5, centre = 0) {
+  if (n_levels %% 2 == 0) {
     warning("It is recommended to use an odd number of attainment levels in ",
             "goal attainment scaling.")
   }
 
   stats::qnorm(
-    seq(0, 1, length.out = levels + 1),
+    seq(0, 1, length.out = n_levels + 1),
     centre, 1
   )
 }

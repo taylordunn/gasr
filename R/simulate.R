@@ -243,13 +243,13 @@ sim_trial <- function(
   group_allocation =  list("control" = 0.5, "treatment" = 0.5),
   n_goals = NULL, n_goals_range = c(3, 6), n_goals_prob = NULL,
   sigma_e = 0.5, delta = 0.3, weight_type = "unweighted",
-  levels = 5, centre = 0
+  n_levels = 5, centre = 0
 ) {
   if (!is.null(n_goals) | !is.null(n_goals_prob)) {
     n_goals_range <- NULL
   }
 
-  thresh <- create_thresholds(levels, centre)
+  thresh <- create_thresholds(n_levels, centre)
 
   sim_subjects(n_subjects, sigma_u, group_allocation) %>%
     sim_goals(n_goals, n_goals_range, n_goals_prob, sigma_e) %>%

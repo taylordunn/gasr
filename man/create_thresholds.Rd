@@ -4,17 +4,17 @@
 \alias{create_thresholds}
 \title{Create score thresholds}
 \usage{
-create_thresholds(levels = 5, centre = 0)
+create_thresholds(n_levels = 5, centre = 0)
 }
 \arguments{
-\item{levels}{The number of levels to use. Defaults to the traditional
+\item{n_levels}{The number of levels to use. Defaults to the traditional
 5 levels.}
 
 \item{centre}{The centre of the normal distribution from which the thresholds
 are taken. See 'Details'.}
 }
 \value{
-A numeric vector of thresholds with \code{levels + 1} values. The first
+A numeric vector of thresholds with \code{n_levels + 1} values. The first
 value will be \code{-Inf}, and the last \code{Inf}, so that extremely small or large
 values can still be discretized.
 }
@@ -31,7 +31,7 @@ goals.
 }
 \examples{
 create_thresholds()
-create_thresholds(levels = 3)
+create_thresholds(n_levels = 3)
 
 # Make goals slightly easier by shifting the thresholds left
 create_thresholds(centre = -0.2)
