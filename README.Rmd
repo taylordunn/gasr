@@ -88,7 +88,7 @@ gas_data_nested <- gas_data %>%
 glimpse(gas_data_nested)
 ```
 
-Method B is to unnest, group by subject, and apply:
+Method B is to `unnest`, `group_by` subject, and apply:
 
 ```{r sim_treatment_effect_b}
 set.seed(2)
@@ -170,7 +170,7 @@ gas_data %>%
   geom_bar(position = "dodge")
 ```
 
-There is then a `calc_score()` function to compute an aggregate goal score based on the formula proposed by [@Kiresuk1968]:
+There is then a `calc_tscore()` function to compute an aggregate goal score based on the formula proposed by [@Kiresuk1968]:
 
 ```{r tscore, fig.height=2.5, fig.width=5}
 gas_data <- gas_data %>%

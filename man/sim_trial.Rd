@@ -8,6 +8,7 @@ sim_trial(
   n_subjects = 40,
   sigma_u = 0.5,
   group_allocation = list(control = 0.5, treatment = 0.5),
+  random_allocation = TRUE,
   n_goals = NULL,
   n_goals_range = c(3, 6),
   n_goals_prob = NULL,
@@ -26,6 +27,13 @@ sim_trial(
 \item{group_allocation}{A named list of groups and their probability of
 assignment. By default, will give equal probability to "control" and
 "treatment" groups. If NULL, will returns subjects without groups.}
+
+\item{random_allocation}{Logical. If TRUE (default), randomly assigns to
+groups based on probabilities in \code{group_allocation}. If FALSE, assigns with
+equal probability. Note that this option will return an error if the
+subjects cannot be neatly divided. For example, \code{n_subjects} = 21 with
+two groups of probabilities 0.5 and 0.5, will return an error if
+\code{random_allocation = FALSE} because 21 cannot be equally divided in two.}
 
 \item{n_goals}{The exact number of goals for each subject.}
 
@@ -52,7 +60,7 @@ the random error of each latent goal score.}
 are taken. See 'Details'.}
 }
 \value{
-A data frame with a row per trial (numbered 1 to \code{n_sim}) which c
+A data frame with a row per trial (numbered 1 to \code{n_sim}) with
 list column\code{ data} containing the simulated data.
 }
 \description{

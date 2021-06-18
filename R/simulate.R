@@ -264,7 +264,7 @@ sim_goal_weights <- function(
 
 #' Simulate a single cross-sectional trial
 #'
-#' @return A data frame with a row per trial (numbered 1 to `n_sim`) which c
+#' @return A data frame with a row per trial (numbered 1 to `n_sim`) with
 #'   list column` data` containing the simulated data.
 #' @export
 #'
@@ -279,6 +279,7 @@ sim_goal_weights <- function(
 sim_trial <- function(
   n_subjects = 40, sigma_u = 0.5,
   group_allocation =  list("control" = 0.5, "treatment" = 0.5),
+  random_allocation = TRUE,
   n_goals = NULL, n_goals_range = c(3, 6), n_goals_prob = NULL,
   sigma_e = 0.5, delta = 0.3, weight_type = "unweighted",
   n_levels = 5, centre = 0
@@ -289,7 +290,7 @@ sim_trial <- function(
 
   thresh <- create_thresholds(n_levels, centre)
 
-  sim_subjects(n_subjects, sigma_u, group_allocation) %>%
+  sim_subjects(n_subjects, sigma_u, group_allocation, random_allocation) %>%
     sim_goals(n_goals, n_goals_range, n_goals_prob, sigma_e) %>%
     tidyr::unnest(.data$goals) %>%
     dplyr::group_by(.data$subject_id) %>%

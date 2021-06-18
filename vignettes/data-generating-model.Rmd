@@ -8,10 +8,11 @@ vignette: >
 bibliography: ../inst/REFERENCES.bib
 ---
 
-```{r, include = FALSE}
+```{r, include=FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  fig.height = 3, fig.width = 5
 )
 ```
 
@@ -217,7 +218,7 @@ In @Urach2019, the following simulation reference scenario is defined to compare
 
 The cumulative standard normal probability distribution $\Phi$ can be computed with `stats::pnorm()`:
 
-```{r fig.height=3, fig.width=6}
+```{r fig.width=6}
 d <- tibble(x = seq(-3, 3, 0.1)) %>%
   mutate(
     p = stats::pnorm(x, mean = 0, sd = 1),
@@ -232,7 +233,7 @@ d %>%
 The inverse cumulative probability function $\Phi^-1$ is also called the quantile function.
 It returns the values of a random variable corresponds to percentiles:
 
-```{r fig.height=3, fig.width=6}
+```{r fig.width=6}
 d <- d %>%
   mutate(
     q = stats::qnorm(p, mean = 0, sd = 1),
@@ -262,7 +263,7 @@ knitr::kable(thresh)
 Six thresholds corresponds to five discretized attainment levels; $l = 2$ in equation (7).
 To show how this works, consider these randomly sampled latent goal scores $y_{ij}$:
 
-```{r fig.height=3, fig.width=6}
+```{r fig.width=6}
 y <- rnorm(1000, mean = 0, sd = 1)
 ggplot(data = tibble(y), aes(y)) +
   geom_density() +
@@ -401,7 +402,7 @@ Note that this integration cannot be performed directly (see p. 103 of @Casella2
 We can numerically compute these values, however.
 Below shows $\Phi(c_t - b)$ for different values of $t$:
 
-```{r fig.height=3, fig.width=6}
+```{r fig.width=6}
 c_t <- stats::qnorm(seq(0, 1, 0.2), mean = 0, sd = 1)
 d <- tibble(
   t = 1:5,
@@ -439,7 +440,7 @@ tibble(t = 1:5) %>%
 
 And then, we can `integrate()` equation (11) for different values of $t$ and $delta$ to get the expected values:
 
-```{r fig.height=3, fig.width=5}
+```{r fig.width=5}
 integrate_phi <- function(t, delta) {
   stats::integrate(
     f = function(b) calc_phi_diff(b, t),
@@ -478,5 +479,181 @@ x_moments %>%
 The shape of the curves looks close to Figure 2(a), but I haven't quite gotten the scale right.
 
 </details>
+
+## Simulation examples
+
+`gasr` provides modularized functions for running simulations with the specified parameters in the reference scenario.
+For instance, if we let $\rho_0 = 0$, simulate 40 subjects equally allocated to control and treatment groups:
+
+```{r}
+set.seed(77)
+
+rho_0 <- 0
+var_u <- rho_0
+var_e <- 1 - rho_0
+
+gas_data <- sim_subjects(
+  n_subjects = 40, sigma_u = sqrt(var_u),
+  group_allocation = list(control = 0.5, treatment = 0.5),
+  random_allocation = FALSE
+)
+gas_data %>% glimpse()
+```
+
+Give each subject between 1 and 5 (=$n_{\text{max}}$) goals:
+
+```{r}
+gas_data <- gas_data %>%
+  sim_goals(n_goals_range = c(1, 5), sigma_e = sqrt(var_e)) %>%
+  unnest(goals)
+glimpse(gas_data)
+```
+
+Assign a uniform distribution treatment effect with $\delta$ = 0.5.
+
+```{r}
+gas_data <- gas_data %>%
+  sim_treatment_effect(delta = 0.5)
+glimpse(gas_data)
+```
+The goal weights could be added here with `sim_goal_weights`, but we'll leave them unweighted for this example.
+
+Calculate the latent goal scores by summing up the random effects (`subject_re` = $u_i$, `goal_re` = $\epsilon_{ij}$) and fixed effects (`treatment_fe` = $b_{ij}$, no control group response $b_0$):
+
+```{r}
+gas_data <- gas_data %>%
+  mutate(
+    score_continuous = subject_re + goal_re +
+      ifelse(group == "treatment", treatment_fe, 0)
+  )
+```
+
+The distribution of continuous scores by treatment group:
+
+```{r }
+gas_data %>%
+  ggplot(aes(x = score_continuous, fill = group, color = group)) +
+  geom_density(alpha = 0.5) +
+  geom_rug()
+```
+
+Now to discretize the scores, we define the thresholds using the inverse cumulative normal distribution:
+
+```{r}
+thresh <- create_thresholds(n_levels = 5)
+thresh
+```
+
+And apply to the continuous scores:
+
+```{r}
+gas_data <- gas_data %>%
+  mutate(
+    score_discrete = discretize_from_thresholds(score_continuous, thresh)
+  )
+gas_data %>%
+  ggplot(aes(x = score_discrete, fill = group)) +
+  geom_bar(position = position_dodge())
+```
+
+It is helpful to run these functions step-by-step to understand the simulations, but it is not very efficient.
+The `sim_trial()` function does all of the steps in one function:
+
+```{r}
+set.seed(15)
+
+gas_data <- sim_trial(
+  n_subjects = 40, sigma_u = sqrt(var_u),
+  group_allocation = list("control" = 0.5, "treatment" = 0.5),
+  random_allocation = FALSE,
+  n_goals_range = c(1, 5), sigma_e = sqrt(var_e),
+  delta = 0.5,
+  n_levels = 5
+)
+glimpse(gas_data)
+```
+
+(Note that this function also returns `goal_weight`s, all equal to 1, and subject-level summary `tscore`s).
+
+```{r}
+gas_data %>%
+  ggplot(aes(x = score_discrete, fill = group)) +
+  geom_bar(position = position_dodge())
+```
+
+A simple hypothesis test would be to compare the subject-level mean goal attainment $\bar{x}_i = \frac{1}{n_i} \sum x_{ij}$ in the two groups via a Welch's $t$-test (allowing for unequal variance):
+
+```{r}
+gas_data_mean <- gas_data %>%
+  group_by(subject_id, group) %>%
+  summarise(
+    mean_score_discrete = mean(score_discrete),
+    .groups = "drop"
+  )
+t.test(
+  mean_score_discrete ~ group,
+  data = gas_data_mean,
+  alternative = "two.sided", var.equal = FALSE
+)
+```
+
+In this case, the difference was not statistically significant at $\alpha = 0.05$.
+
+We can repeat this, say, 10000 times, run $t$-tests, and get the $p$ values:
+
+```{r eval=FALSE}
+set.seed(21)
+
+gas_sims <-
+  tibble(
+    sim = 1:10000,
+  ) %>%
+  mutate(
+    data = map(
+      sim,
+      ~sim_trial(
+        n_subjects = 40, sigma_u = sqrt(var_u),
+        group_allocation = list("control" = 0.5, "treatment" = 0.5),
+        random_allocation = FALSE,
+        n_goals_range = c(1, 5), sigma_e = sqrt(var_e),
+        delta = 0.5,
+        n_levels = 5
+      ) %>%
+        group_by(subject_id, group) %>%
+        summarise(mean_score_discrete = mean(score_discrete),
+                  .groups = "drop")
+    )
+  )
+# Run t-tests on every simulation
+gas_sims_ttest <- gas_sims %>%
+  transmute(
+    sim,
+    ttest = map(
+      data,
+      ~t.test(mean_score_discrete ~ group,
+              data = .,
+              alternative = "two.sided", var.equal = FALSE)
+    )
+  ) %>%
+  mutate(ttest = map(ttest, broom::tidy)) %>%
+  unnest(ttest)
+```
+
+(This took about 8.5 minutes to run, for reference).
+
+```{r echo=FALSE}
+# To save time while building the vignette, the results of the simulation
+#  were saved separately
+gas_sims_ttest <- readr::read_rds(
+  system.file("extdata/gas-sims-ttest.rds", package = "gasr")
+)
+```
+
+```{r}
+glimpse(gas_sims_ttest)
+```
+
+A total of `r sum(gas_sims_ttest$p.value < 0.05)` of these simulations (`r scales::percent(mean(gas_sims_ttest$p.value < 0.05))`) returned a $p$ value <0.05.
+And so the power to detect a significant treatment effect in this scenario is 55% when using a $t$-test on per-subject means (which matches the power reported by @Urach2019).
 
 ## References
