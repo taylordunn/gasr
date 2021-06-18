@@ -6,8 +6,14 @@
 #' @param n_subjects Number of subjects.
 #' @param sigma_u Standard deviation of the subject-level random effect.
 #' @param group_allocation A named list of groups and their probability of
-#'   assignment. By default, will equally allocate subjects to "control" and
-#'   "treatment"
+#'   assignment. By default, will give equal probability to "control" and
+#'   "treatment" groups. If NULL, will returns subjects without groups.
+#' @param random_allocation Logical. If TRUE (default), randomly assigns to
+#'   groups based on probabilities in `group_allocation`. If FALSE, assigns with
+#'   equal probability. Note that this option will return an error if the
+#'   subjects cannot be neatly divided. For example, `n_subjects` = 21 with
+#'   two groups of probabilities 0.5 and 0.5, will return an error if
+#'   `random_allocation = FALSE` because 21 cannot be equally divided in two.
 #'
 #' @return A data frame with a row for each subject.
 #' @export
@@ -18,20 +24,52 @@
 #'   group_allocation = list("placebo" = 1/2,
 #'                           "1x dose" = 1/4, "2x dose" = 1/4)
 #' )
+#'
+#' # If using non-random group allocation, `n_subjects` must be able to be
+#' #  divided using the given `group_allocation`
+#' sim_subjects(
+#'   n_subjects = 99,
+#'   group_allocation = list("placebo" = 1/3,
+#'                           "1x dose" = 1/3, "2x dose" = 1/3),
+#'   random_allocation = FALSE
+#' )
 #' @importFrom tibble tibble
 #' @importFrom dplyr mutate
 #' @importFrom stats rnorm
 #' @importFrom rlang .data
+#' @importFrom purrr map_int
 sim_subjects <- function(n_subjects = 100, sigma_u = 0.5,
                          group_allocation = list("control" = 0.5,
-                                                 "treatment" = 0.5)) {
-  tibble::tibble(
+                                                 "treatment" = 0.5),
+                         random_allocation = TRUE) {
+  subjects <- tibble::tibble(
     subject_id = generate_subject_ids(n_subjects),
-    group = sample(names(group_allocation), size = n_subjects,
-                   replace = TRUE, prob = as.numeric(group_allocation)),
     subject_re = stats::rnorm(n_subjects, mean = 0, sd = sigma_u),
-  ) %>%
-    dplyr::mutate(group = factor(.data$group, levels = names(group_allocation)))
+  )
+
+  if (!is.null(group_allocation)) {
+    if (random_allocation) {
+      subjects <- subjects %>%
+        mutate(
+          group = sample(names(group_allocation), size = n_subjects,
+                         replace = TRUE, prob = as.numeric(group_allocation))
+        )
+    } else {
+      subjects <- subjects %>%
+        mutate(
+          group =  rep(names(group_allocation),
+                       purrr::map_int(group_allocation,
+                                      ~as.integer(. * n_subjects)))
+        )
+    }
+
+    subjects <- subjects %>%
+      dplyr::mutate(
+        group = factor(.data$group, levels = names(group_allocation))
+      )
+  }
+
+  return(subjects)
 }
 
 #' Simulate goals

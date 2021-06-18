@@ -24,8 +24,8 @@ sim_trial(
 \item{sigma_u}{Standard deviation of the subject-level random effect.}
 
 \item{group_allocation}{A named list of groups and their probability of
-assignment. By default, will equally allocate subjects to "control" and
-"treatment"}
+assignment. By default, will give equal probability to "control" and
+"treatment" groups. If NULL, will returns subjects without groups.}
 
 \item{n_goals}{The exact number of goals for each subject.}
 

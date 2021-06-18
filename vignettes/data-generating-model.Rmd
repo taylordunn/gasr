@@ -17,13 +17,466 @@ knitr::opts_chunk$set(
 
 ```{r setup}
 library(gasr)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(stringr)
 ```
 
-With this package, we employ the latent variable approach to generating goal attainment scaling [@Kiresuk1968] data that was introduced by [@Urach2019].
-Here, we walk through some of the theory behind this model and show how it translates to the various R functions, but highly recommend any users to read the paper themselves to better understand the model.
+With this package, we employ the latent variable approach to generating goal attainment scaling data that was introduced by [@Urach2019].
+Here, we walk through some of the theory behind this model and show how it translates to the various `gasr` functions, but highly recommend any users to read the paper themselves to better understand the model.
 
-First, we introduce some notation.
-The observed goal score for subject $i$'s goal $j$ is denoted $x_{ij}$, and comes from the discretization
+First, some notation (which we alter slightly from that in @Urach2019).
+Let $n_i \sim D$, where $D$ denotes the distribution of the number of goals chosen by subject $i$.
+The observed goal score for subject $i$'s goal $j$ is denoted $x_{ij}$, and comes from the discretization of their continuous *latent* unobserved goal scores $y_{ij}$.
+For goals $j = 1, \dots n_i$:
 
+$$
+\tag{1}
+y_{ij} = b_0 + u_i + g_i b_{ij} + \epsilon_{ij}
+$$
+
+where
+
+* $b_0$ is the mean response in the control group.
+* $u_i \sim N(0, \sigma_u^2)$ is a patient-specific random effect.
+    * Assume independent between subjects.
+    * This introduces correlation between goals within a subject.
+* $g_i$ is subject $i$'s treatment group.
+    * $g_i$ = 0 for control and $g_i$ = 1 for experimental treatment.
+* $b_{ij} \sim B$ is the effect of the experimental treatment on the attainment of goal $j$ for subject $i$.
+    * Assume non-negative random variables with variance $\sigma_B^2$.
+    * Assume independent between subjects.
+    * Assume independent between goals of the same subjects.
+    * This reflects the assumption that each subject chooses distinct goals that respond uniquely to the treatment.
+* $\epsilon_{ij} \sim N(0, \sigma_{\epsilon}^2)$ is a random error term.
+
+The within-subject correlation of two goal scores $y_{ij}$ and $y_{ij'}$ ($j \neq j'$) is given by:
+
+
+$$
+\tag{2}
+\rho_g = \frac{\sigma_u^2}{\sigma_u^2 + g \sigma_B^2 + \sigma_{\epsilon}^2}
+$$
+
+which implies that, if $\sigma_B > 0$, the within-subject correlation in the treatment group is smaller than that in the control group.
+
+<details><summary>Proof</summary>
+
+The correlation between two random variables $X$ and $Y$ is:
+
+$$
+\rho = \frac{\text{Cov}(X, Y)}{\sqrt{\text{Var}(X) \text{Var}(Y)}}
+$$
+
+So if we consider the correlation between subject $i$'s two goals $j$ and $j'$:
+
+$$
+\tag{3}
+\rho_g = \frac{\text{Cov}(y_{ij}, y_{ij'})}{\sqrt{\text{Var}(y_{ij}) \text{Var}(y_{ij'})}}
+$$
+
+Consider the variance of the latent goal score $\text{Var}(y_{ij})$.
+
+$$
+\text{Var}(y_{ij}) = \text{Var}(b_0 + u_i + g_i b_{ij} + \epsilon_{ij})
+$$
+To decompose the variance, we use the following theorem from @Casella2002:
+
+>**Theorem 4.5.6** (p. 171) *If $X$ and $Y$ are any two random variables and $a$ and $b$ are any two constants, then*
+$$
+\text{Var}(aX + bY) = a^2 \text{Var} X + b^2 \text{Var} Y + 2ab \text{Cov}(X, Y)
+$$
+
+By construction, the four terms $b_0$, $u_i$, $b_{ij}$, and $\epsilon_{ij}$ are independent, and so $\text{Cov}(X, Y) = 0$ for each pair (**Thereom 4.5.5** (p. 171)):
+
+$$
+\begin{align}
+\text{Var}(y_{ij}) &= \text{Var}(b_0) + \text{Var}(u_i) + g_i^2\text{Var}(b_{ij}) + \text{Var}(\epsilon_{ij}) \\
+&= 0 + \sigma_u^2 + g_i^2 \sigma_B^2 + \sigma_\epsilon^2 \\
+&= \sigma_u^2 + g \sigma_B^2 + \sigma_\epsilon^2 \\
+\end{align}
+$$
+
+And the same is true for $\text{Var}(y_{ij'})$, of course.
+So the denominator of equation (3) is:
+
+$$
+\tag{4}
+\sqrt{\text{Var}(y_{ij}) \text{Var}(y_{ij'})} =
+\sqrt{[\sigma_u^2 + g \sigma_B^2 + \sigma_{\epsilon}^2]^2} =
+\sigma_u^2 + g \sigma_B^2 + \sigma_\epsilon^2 \\
+$$
+
+Now for the numerator of (3), the covariance between goals $j$ and $j'$.
+From @Casella2002:
+
+>**Definition 4.5.1** (p.169) *The covariance of $X$ and $Y$ is the number defined by*
+$$
+\text{Cov}(X, Y) = E((X - \mu_X)(Y - \mu_Y))
+$$
+
+Applying this to $y_{ij}$ and $y_{ij'}$:
+
+$$
+\tag{5}
+\text{Cov}(y_{ij}, y_{ij'}) = E((y_{ij} - E(y_{ij}))(y_{ij'} - E(y_{ij'}))
+$$
+
+Consider just the first term of the product:
+
+$$
+\begin{align}
+y_{ij} - E(y_{ij}) &= (b_0 + u_i + g_i b_{ij} + \epsilon_{ij}) - E(b_0 + u_i + g_i b_{ij} + \epsilon_{ij}) \\
+&= (b_0 - b_0) + (u_i - E(u_i)) + g_i(b_{ij} - E(b_{ij})) + (\epsilon_{ij} - E(\epsilon_{ij})) \\
+\end{align}
+$$
+
+And likewise for the term $y_{ij'} - E(y_{ij'})$.
+Then the product in equation (5) is:
+
+$$
+\begin{align}
+[y_{ij} - E(y_{ij})] [y_{ij'} - E(y_{ij'})] &=
+[(u_i - E(u_i)) + g_i(b_{ij} - E(b_{ij})) + (\epsilon_{ij} - E(\epsilon_{ij}))]
+[(u_i - E(u_i)) + g_i(b_{ij'} - E(b_{ij'})) + (\epsilon_{ij'} - E(\epsilon_{ij'}))] \\
+&= (u_i - E(u_i))^2 + g_i^2(b_{ij} - E(b_{ij}))(b_{ij'} - E(b_{ij'})) + (\epsilon_{ij} - E(\epsilon_{ij}))(\epsilon_{ij'} - E(\epsilon_{ij'})) \\
+&+ g_i(u_i - E(u_i))(b_{ij'} - E(b_{ij'})) + (u_i - E(u_i))(\epsilon_{ij'} - E(\epsilon_{ij'})) \\
+&+ g_i(b_{ij} - E(b_{ij}))(u_i - E(u_i)) + g_i(b_{ij} - E(b_{ij}))(\epsilon_{ij'} - E(\epsilon_{ij'})) \\
+&+ (\epsilon_{ij} - E(\epsilon_{ij}))(u_i - E(u_i)) + g_i (e_{ij} - E(\epsilon_{ij}))(b_{ij'} - E(b_{ij'}))
+\end{align}
+$$
+
+Taking the expected values of the above gives us a sum of variance and covariance terms (by **Definition 4.5.1** above):
+
+$$
+\begin{align}
+E[y_{ij} - E(y_{ij})] [y_{ij'} - E(y_{ij'})] &=
+\text{Var}(u_i) + g_i^2 \text{Cov}(b_{ij}, b_{ij'}) + \text{Cov}(\epsilon_{ij}, \epsilon_{ij'}) \\
+&+ g_i \text{Cov}(u_i, b_{ij'}) + \text{Cov}(u_i, \epsilon_{ij'}) \\
+&+ g_i \text{Cov}(u_i, b_{ij}) + g_i\text{Cov}(b_{ij}, \epsilon_{ij'}) \\
+&+ \text{Cov}(u_i, \epsilon_{ij}) + g_i \text{Cov}(b_{ij'}, \epsilon_{ij})
+\end{align}
+$$
+As already established, we have independence between every pair combination of $b_0$, $u_i$, $b_{ij}$, $b_{ij'}$, $\epsilon_{ij}$, and $\epsilon_{ij'}$, and so all of the covariance terms are zero:
+
+$$
+\tag{6}
+E[y_{ij} - E(y_{ij})] [y_{ij'} - E(y_{ij'})] = \text{Var}(u_i) = \sigma_u^2
+$$
+
+Combining the denominator from equation (4) and numerator from equation (6) into equation (3):
+
+$$
+\rho_g = \frac{\sigma_u^2}{\sigma_u^2 + g \sigma_B^2 + \sigma_{\epsilon}^2}
+$$
+
+gives us the expected expression of equation (2).
+
+</details>
+
+The discrete goal attainment levels $x_{ij}$ are defined by discretizing $y_{ij}$ via a set of thresholds:
+
+$$
+\tag{7}
+-\infty = c_0 < c_1 \dots c_{2l + 1} = \infty
+$$
+
+such that $x_{ij} = t - l - 1$ if $c_{t-1} < y_{ij} \leq c_t$ for $t = 0, \dots, 2l+1$.
+This means that $x_{ij}$ will range from $-l$ to $l$.
+
+Traditionally, a 5-point attainment scale is employed in GAS.
+This corresponds to $l = 2$, and $s = 1, \dots, 5$:
+
+$$
+\tag{8}
+\begin{align}
+t &= (0, \dots 2l + 1): c_{t-1} < y_{ij} \leq c_t \rightarrow x_{ij} = t - l - 1  \\
+\\
+t &= 0: \text{undefined } c_{-1} \\
+t &= 1: c_0 < y_{ij} \leq c_1 \rightarrow x_{ij} = 1 - 2 - 1 = -2 \\
+t &= 2: c_1 < y_{ij} \leq c_2 \rightarrow x_{ij} = 2 - 2 - 1 = -1 \\
+t &= 3: c_2 < y_{ij} \leq c_3 \rightarrow x_{ij} = 3 - 2 - 1 = 0 \\
+t &= 4: c_3 < y_{ij} \leq c_4 \rightarrow x_{ij} = 4 - 2 - 1 = +1 \\
+t &= 5: c_4 < y_{ij} \leq c_5 \rightarrow x_{ij} = 5 - 2 - 1 = +2 \\
+\end{align}
+$$
+
+(I'm not sure why $t = 0$ is considered, given that it is undefined).
+
+## Simulation scenarios
+
+In @Urach2019, the following simulation reference scenario is defined to compare hypothesis testing power:
+
+* Parallel group design with equal per group sample size $m/2$.
+* Overall sample size $m = 40$.
+* Thresholds $c_t = \Phi^{-1} (0.2t)$, $t = 0, \dots, 5$.
+    * $\Phi^{-1}$ denotes the inverse of the cumulative standard normal distribution function.
+
+<details><summary>Thresholds</summary>
+
+The cumulative standard normal probability distribution $\Phi$ can be computed with `stats::pnorm()`:
+
+```{r fig.height=3, fig.width=6}
+d <- tibble(x = seq(-3, 3, 0.1)) %>%
+  mutate(
+    p = stats::pnorm(x, mean = 0, sd = 1),
+  )
+
+d %>%
+  ggplot(aes(x, p)) +
+  geom_line() +
+  labs(title = "Cumulative standard normal distribution (mean 0, SD 1)")
+```
+
+The inverse cumulative probability function $\Phi^-1$ is also called the quantile function.
+It returns the values of a random variable corresponds to percentiles:
+
+```{r fig.height=3, fig.width=6}
+d <- d %>%
+  mutate(
+    q = stats::qnorm(p, mean = 0, sd = 1),
+  )
+
+d %>%
+  ggplot(aes(p, q)) +
+  geom_line() +
+  scale_x_continuous(breaks = seq(0, 1.0, 0.2)) +
+  geom_vline(xintercept = seq(0, 1, 0.2), lty = 2) +
+  labs(title = "Inverse cumulative standard normal distribution (mean 0, SD 1)")
+```
+
+In the simulation scenario, six thresholds are defined:  $c_t = \Phi^{-1} (0.2t)$, $t = 0, \dots, 5$.
+These are marked in the above plot with the dashed lines.
+The values $c_t = \Phi^{-1}$ for those values of $t$:
+
+```{r}
+thresh <- tibble(
+  t = 0:5,
+  percentile = 0.2 * t,
+  c_t = stats::qnorm(percentile, mean = 0, sd = 1) %>% round(2)
+)
+knitr::kable(thresh)
+```
+
+Six thresholds corresponds to five discretized attainment levels; $l = 2$ in equation (7).
+To show how this works, consider these randomly sampled latent goal scores $y_{ij}$:
+
+```{r fig.height=3, fig.width=6}
+y <- rnorm(1000, mean = 0, sd = 1)
+ggplot(data = tibble(y), aes(y)) +
+  geom_density() +
+  geom_rug() +
+  geom_vline(xintercept = thresh$c_t, lty = 2) +
+  scale_x_continuous(limits = c(-5, 5))
+```
+
+Where the minimum and maximum thresholds at $\pm \infty$ were drawn at the edges of the plot, so they are visible.
+
+We then bucket those scores according to to equation (8), for which `gasr` has a convenience function:
+
+```{r}
+x <- gasr::discretize_from_thresholds(y, thresholds = thresh$c_t)
+
+ggplot(data = tibble(x), aes(x)) +
+  geom_bar()
+```
+
+</details>
+
+* The number of goals $n_i$ are uniformly distributed on $(1, \dots, n_{\text{max}}$) with $n_{\text{max}} = 5$.
+* The treatment effects $b_{ij}$ are assumed to be uniformly distributed on $(0, 2\delta)$ for fixed constant $\delta$.
+    * $B = U(0, 2\delta)$, $E(b_{ij}) = \delta$, $\text{Var}(b_{ij}) = \delta^{2/3}$.
+* The mean response in the control group is set to zero.
+    * $b_0 = 0$, $\mu_0 = 0$.
+* Correlations fixed by setting the variance of the random effects:
+    * $\sigma_u^2 = \rho_0$, and
+    * $\sigma_{\epsilon}^2 = 1 - \rho_0$, therefore
+    * equation (2) is $\rho_g = \rho_0 / (g\sigma_B^2 + 1)$.
+        * $\rho_0$ in the control group, and
+        * $\rho_1 = \rho_0 / (\sigma_B^2 + 1)$ in the treatment group.
+        
+<details><summary>Mean, variance, and covariance of the discretized goal scores</summary>
+
+Figure 2(a) of @Urach2019 shows the relationship of of the expected value of the discretized goal attainment scores in the treatment group, $\mu_1 = E(x_{ij}(g = 1))$, and the standard deviation $\sigma$, versus treatment effect size $\delta$ for the reference scenario.
+The expected value for the continuous scores is:
+
+$$
+\begin{align}
+E(y_{ij}|g_i = 1) &= E(b_0) + E(\mu_i) + E(b_{ij}) + E(\epsilon_{ij}) \\
+&= 0 + 0 + \delta + 0 \\
+&= \delta
+\end{align}
+$$
+
+and the variance of $y_{ij}$ can be decomposed into:
+
+$$
+\begin{align}
+\text{Var}(y_{ij}) = \sigma^2 &= \text{Var}(b_0) +\text{Var}(u_i) + \text{Var}(b_{ij}) + \text{Var}(\epsilon_{ij}) \\
+&= 0 + \sigma_u^2 + \delta^{2/3} + \sigma_{\epsilon}^2 \\
+&= \rho_0 + \delta^{2/3} + (1 - \rho_0) \\
+&= \delta^{2/3} + 1
+\end{align}
+$$
+The expected value of the discrete scores are more complicated.
+Derivations are provided by @Urach2019 in Appendix 1, which we will attempt to work through here.
+
+Using the cumulative normal distribution $\Phi$ defining the thresholds, they show that the marginal probability distribution of $x_{ij}$ is given by:
+
+$$
+\tag{9}
+P(x_{ij} = t | g_i = g, b_{ij} = b) = \Phi\left(\frac{c_t - gb - b_0}{\sigma_u^2 + \sigma_e^2}\right) - \Phi \left(\frac{c_{t-1} - gb + b_0}{\sigma_u^2 + \sigma_e^2} \right)
+$$
+
+The moments of a distribution are defined in @Casella2002 as:
+
+>**Definition 2.3.1** (p. 59) *For each integer $n$, the $n$th moment of $X$, $\mu_n'$ is*
+$$
+\mu_n' = E(X^n).
+$$
+*The $n$th central moment of $X$, $\mu_n$ is*
+$$
+\mu_n = E(X - \mu)^n,
+$$
+*where $\mu = \mu_1' = EX$.*
+
+For a random variable $g(X)$ with probability distribution function $f_X(x)$, the integral definition of the expected value is:
+
+>**Definition 2.2.1** (p. 55) *The expected value or mean of a random variable $g(X)$ is*
+$$
+\begin{align}
+E(X) &= \int_{-\infty}^{\infty} g(x) f_X(x) dx \ \ \ \ \ \text{if X is continuous} \\
+&= \sum_{x \in \mathcal{X}} g(x) f_X(x) \ \ \ \ \ \ \ \ \ \ \ \text{if X is discrete} \\
+\end{align}
+$$
+
+With $f_b$ representing the density of $b_{ij}$, the non-central moments of $x_{ij}$ for $a >0$ are:
+
+$$
+\tag{10}
+\begin{align}
+E(x_{ij}^a | g_i = g) &= \int_B E(x_{ij}|g_i = g, b_{ij} = b) f_b (b) db \\
+&= \sum_{t \in \mathcal{T}} t^a \int_B P(x_{ij} = t | g_i = g, b_{ij} = b) f_b(b) db
+\end{align}
+$$
+
+I don't quite follow this, but the central moments are then given by:
+
+$$
+\begin{align}
+\mu_g &= E(x_{ij}|g_i = g) \\
+\sigma^2 = \text{Var}(x_{ij}|g_i = g) &= E(x_{ij}^2|g_i = g) - E(x_{ij}|g_i = g)^2
+\end{align}
+$$
+(unless I'm misunderstanding, $\mu_g$ is not a central moment, it is the first moment as per the @Casella2002 definition).
+
+Plugging equation (9) into (10) for $a = 1$, and using $f_b = 1/2\delta$ for the uniform treatment effect distribution:
+
+$$
+\begin{align}
+\tag{11}
+E(x_{ij} | g_i = g)
+&= \sum_{t \in \mathcal{T}} t \int_B P(x_{ij} = t | g_i = g, b_{ij} = b) f_b(b) db \\
+&= \sum_{t \in \mathcal{T}} t \int_B \left[\Phi\left(\frac{c_t - gb - b_0}{\sigma_u^2 + \sigma_e^2}\right) - \Phi \left(\frac{c_{t-1} - gb + b_0}{\sigma_u^2 + \sigma_e^2} \right)  \right] \frac{1}{2\delta} db
+\end{align}
+$$
+
+We can simplify the cumulative distribution functions using the other assumptions from the reference scenario:
+
+$$
+\begin{align}
+\Phi \left(\frac{c_t - gb - b_0}{\sigma_u^2 + \sigma_{\epsilon}^2}\right)
+= \Phi \left(\frac{c_t - gb - 0}{\rho_0 + 1 - \rho_0} \right) = \Phi (c_t - gb)
+\end{align}
+$$
+
+Then applying the formula for the standard normal CDF from equation (3.3.13) on p. 102 of @Casella2002:
+
+$$
+\Phi(c_t - gb) = \frac{1}{2\pi} \int_{-\infty}^x e^{-(c_t - gb)^2/2} db
+$$
+
+Note that this integration cannot be performed directly (see p. 103 of @Casella2002 for details).
+We can numerically compute these values, however.
+Below shows $\Phi(c_t - b)$ for different values of $t$:
+
+```{r fig.height=3, fig.width=6}
+c_t <- stats::qnorm(seq(0, 1, 0.2), mean = 0, sd = 1)
+d <- tibble(
+  t = 1:5,
+  t_label = str_c("t = ", t),
+  c_t = c_t[2:6]
+) %>%
+  crossing(b = seq(-3, 3, 0.01), g = c(0, 1)) %>%
+  mutate(phi = pnorm(c_t - g * b, mean = 0, sd = 1))
+d %>%
+  ggplot(aes(x = b, y = phi)) +
+  geom_line(aes(color = factor(g))) +
+  facet_wrap(~t_label)
+```
+
+And then we take the difference in adjacent distributions, which are shown below for the treatment group ($g = 1$):
+
+```{r fig.height=3, fig.width=6}
+c_t <- stats::qnorm(seq(0, 1, 0.2), mean = 0, sd = 1)
+calc_phi_diff <- function(b, t) {
+  pnorm(c_t[t + 1] - b, mean = 0, sd = 1) -
+    pnorm(c_t[t] - b, mean = 0, sd = 1)
+}
+
+tibble(t = 1:5) %>%
+  crossing(b = seq(-3, 3, 0.01)) %>%
+  mutate(
+    phi_diff = calc_phi_diff(b, t),
+    t_label = str_c("phi(t = ", t + 1, ") - phi(t = ", t, ")")
+  ) %>%
+  ggplot(aes(x = b, y = phi_diff)) +
+  geom_line(aes(color = t_label)) +
+  scale_color_viridis_d()
+```
+
+
+And then, we can `integrate()` equation (11) for different values of $t$ and $delta$ to get the expected values:
+
+```{r fig.height=3, fig.width=5}
+integrate_phi <- function(t, delta) {
+  stats::integrate(
+    f = function(b) calc_phi_diff(b, t),
+    lower = 0, upper = 2 * delta, subdivisions = 100
+  )$value
+}
+
+phi_integral <- tibble(t = as.integer(1:5)) %>%
+  crossing(delta = seq(0.01, 5, 0.01)) %>%
+  rowwise() %>%
+  mutate(
+    integral = integrate_phi(t, delta)
+  ) %>%
+  ungroup()
+
+# Compute moments of the discrete goal scales by summing over t
+x_moments <- phi_integral %>%
+  group_by(delta) %>%
+  summarise(
+    integral_sum1 = sum((t - 3) * integral) / (2 * delta),
+    integral_sum2 = sum((t - 3)^2 * integral) / (2 * delta),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    mu = integral_sum1,
+    var = integral_sum2 - mu^2
+  )
+x_moments %>%
+  transmute(delta, mu, sigma = sqrt(var)) %>%
+  pivot_longer(c(mu, sigma), names_to = "moment", values_to = "value") %>%
+  ggplot(aes(x = delta, y = value, color = moment)) +
+  geom_line() +
+  scale_y_continuous(limits = c(0, 2))
+```
+
+The shape of the curves looks close to Figure 2(a), but I haven't quite gotten the scale right.
+
+</details>
 
 ## References

@@ -7,7 +7,8 @@
 sim_subjects(
   n_subjects = 100,
   sigma_u = 0.5,
-  group_allocation = list(control = 0.5, treatment = 0.5)
+  group_allocation = list(control = 0.5, treatment = 0.5),
+  random_allocation = TRUE
 )
 }
 \arguments{
@@ -16,8 +17,15 @@ sim_subjects(
 \item{sigma_u}{Standard deviation of the subject-level random effect.}
 
 \item{group_allocation}{A named list of groups and their probability of
-assignment. By default, will equally allocate subjects to "control" and
-"treatment"}
+assignment. By default, will give equal probability to "control" and
+"treatment" groups. If NULL, will returns subjects without groups.}
+
+\item{random_allocation}{Logical. If TRUE (default), randomly assigns to
+groups based on probabilities in \code{group_allocation}. If FALSE, assigns with
+equal probability. Note that this option will return an error if the
+subjects cannot be neatly divided. For example, \code{n_subjects} = 21 with
+two groups of probabilities 0.5 and 0.5, will return an error if
+\code{random_allocation = FALSE} because 21 cannot be equally divided in two.}
 }
 \value{
 A data frame with a row for each subject.
@@ -31,5 +39,14 @@ sim_subjects(n_subjects = 20)
 sim_subjects(
   group_allocation = list("placebo" = 1/2,
                           "1x dose" = 1/4, "2x dose" = 1/4)
+)
+
+# If using non-random group allocation, `n_subjects` must be able to be
+#  divided using the given `group_allocation`
+sim_subjects(
+  n_subjects = 99,
+  group_allocation = list("placebo" = 1/3,
+                          "1x dose" = 1/3, "2x dose" = 1/3),
+  random_allocation = FALSE
 )
 }
