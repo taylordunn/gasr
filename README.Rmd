@@ -202,16 +202,18 @@ formals(sim_trial)
 
 The recommended workflow for running many simulations of GAS trials is as follows:
 
-1. Choose your trial parameters
+1. Choose your trial parameters, e.g.
     * Number of subjects `n_subjects`
     * Group allocation `group_allocation`
     * Treatment effect `delta`
 2. Choose GAS parameters
     * Number of goals per subject: `n_goals`, `n_goals_range`, or `n_goals_prob`
     * Goal weights `weight_type`
+    * Attainment level thresholds `thresh`
 3. Choose simulation parameters
-    * Random seed via `set.seed()`
+    * Set random seed via `set.seed()` for reproducible results
     * Number of trials to simulate `n_sim`
+4. Wrap these choices in a custom function to run it `n_sim` times
 
 For the first two steps, the `sim_trial()` function can be used as a shortcut.
 For instance, if we want to simulate 20 subjects with 3 goals and a treatment effect of 0.5:
@@ -221,8 +223,26 @@ sim_trial(n_subjects = 20, n_goals = 3, delta = 0.5) %>%
   glimpse()
 ```
 
-To incorporate the third step, it is recommended to write a custom function.
-For example, if we just want to vary the number of subjects and the treatment effect (leaving all other options the same/default):
+Then step 3 involves just a few extra lines of code to set the seed and run it `n_sim` times:
+
+```{r}
+set.seed(15)
+
+n_sims <- 10
+sims1 <- tibble(
+  sim = 1:n_sims,
+  data = map(
+    sim,
+    ~sim_trial(n_subjects = 20, delta = 0.3)
+  )
+)
+glimpse(sims1)
+```
+
+This returns a row per simulation, with the data nested in the `data` column.
+
+Step 4, writing a custom function, is not required, but highly recommended, because it allows quick adjustment of key parameters.
+For example, if we just want to vary the number of subjects and the treatment effect (leaving all other options the same/default), we would write a function similar to:
 
 ```{r run_simulations1}
 run_simulations <- function(seed, n_sim, n_subjects, delta) {
@@ -247,15 +267,14 @@ Then we can run 100 simulation with `n_subjects` = 20 and `delta` = 0.3 (and tim
 ```{r run_simulation2}
 library(tictoc)
 tic()
-sims1 <- run_simulations(seed = 52, n_sim = 100,
+sims2 <- run_simulations(seed = 52, n_sim = 100,
                          n_subjects = 20, delta = 0.3)
 toc()
 ```
-The custom function returns a row per simulation, with the data nested in the `data` column.
 Here is an example of unnesting and plotting the T-scores of the first 10 simulations:
 
 ```{r run_simulations3}
-sims1 %>%
+sims2 %>%
   unnest(data) %>%
   filter(sim <= 10) %>%
   distinct(sim, n_subjects, delta,
@@ -270,7 +289,7 @@ sims1 %>%
 ## Todo
 
 * Update documentation for `sim_trial`
-* Continue `data-generating-model` vignette
+* Continue `internal-consistency` vignette
 * Write unit tests
 * Write `power-calculation` vignette
 

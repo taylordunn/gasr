@@ -516,6 +516,7 @@ gas_data <- gas_data %>%
   sim_treatment_effect(delta = 0.5)
 glimpse(gas_data)
 ```
+
 The goal weights could be added here with `sim_goal_weights`, but we'll leave them unweighted for this example.
 
 Calculate the latent goal scores by summing up the random effects (`subject_re` = $u_i$, `goal_re` = $\epsilon_{ij}$) and fixed effects (`treatment_fe` = $b_{ij}$, no control group response $b_0$):
