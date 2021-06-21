@@ -4,14 +4,19 @@
 \alias{create_thresholds}
 \title{Create score thresholds}
 \usage{
-create_thresholds(n_levels = 5, centre = 0)
+create_thresholds(n_levels = 5, score_dist = c("norm", "unif"), centre = 0)
 }
 \arguments{
 \item{n_levels}{The number of levels to use. Defaults to the traditional
 5 levels.}
 
+\item{score_dist}{The distribution by which scores should be approximated.
+The default "norm" will return thresholds which approximate a
+standard normal distribution. Choosing "unif" will return thresholds
+which approximate a uniform distribution.}
+
 \item{centre}{The centre of the normal distribution from which the thresholds
-are taken. See 'Details'.}
+are taken.}
 }
 \value{
 A numeric vector of thresholds with \code{n_levels + 1} values. The first
@@ -23,9 +28,12 @@ Creates a set of thresholds which can be used to discretize
 latent continuous goal scores into "observed" discrete scores.
 }
 \details{
-This function follows the approach introduced by
-Urach et al. 2019 to get equally spaced attainment levels from
-a cumulative standard normal distribution.
+This function follows the approach introduced by Urach et al. 2019 to get
+attainment levels from a cumulative standard normal distribution.
+The \code{score_dist} argument will alter the thresholds to return thresholds that
+will give an approximately  normal ("norm") or uniform ("unif") discrete
+score distribution
+(assuming a standard normal continuous score distribution).
 The distribution \code{centre} can be shifted to adjust the "difficulty" of
 goals.
 }

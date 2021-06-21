@@ -54,7 +54,6 @@ where
 
 The within-subject correlation of two goal scores $y_{ij}$ and $y_{ij'}$ ($j \neq j'$) is given by:
 
-
 $$
 \tag{2}
 \rho_g = \frac{\sigma_u^2}{\sigma_u^2 + g \sigma_B^2 + \sigma_{\epsilon}^2}
@@ -203,7 +202,7 @@ t &= 5: c_4 < y_{ij} \leq c_5 \rightarrow x_{ij} = 5 - 2 - 1 = +2 \\
 \end{align}
 $$
 
-(I'm not sure why $t = 0$ is considered, given that it is undefined).
+(I'm not sure why $t = 0$ is considered, given that $c_{t-1}$ is undefined).
 
 ## Simulation scenarios
 
@@ -282,6 +281,9 @@ x <- gasr::discretize_from_thresholds(y, thresholds = thresh$c_t)
 ggplot(data = tibble(x), aes(x)) +
   geom_bar()
 ```
+
+Note that this results in a uniform distribution of goal scores, which isn't the traditional distribution from GAS theory.
+See (this vignette)[simulation-calibration.html] for more discussion about this topic.
 
 </details>
 
@@ -541,7 +543,7 @@ gas_data %>%
 Now to discretize the scores, we define the thresholds using the inverse cumulative normal distribution:
 
 ```{r}
-thresh <- create_thresholds(n_levels = 5)
+thresh <- create_thresholds(n_levels = 5, score_dist = "unif")
 thresh
 ```
 
@@ -653,6 +655,13 @@ gas_sims_ttest <- readr::read_rds(
 ```{r}
 glimpse(gas_sims_ttest)
 ```
+
+Count the $p$ values according to significance level $\alpha = 0.05$:
+
+```{r}
+gas_sims_ttest %>% count(p.value < 0.05)
+```
+
 
 A total of `r sum(gas_sims_ttest$p.value < 0.05)` of these simulations (`r scales::percent(mean(gas_sims_ttest$p.value < 0.05))`) returned a $p$ value <0.05.
 And so the power to detect a significant treatment effect in this scenario is 55% when using a $t$-test on per-subject means (which matches the power reported by @Urach2019).

@@ -16,6 +16,7 @@ sim_trial(
   delta = 0.3,
   weight_type = "unweighted",
   n_levels = 5,
+  score_dist = "norm",
   centre = 0
 )
 }
@@ -56,8 +57,13 @@ the random error of each latent goal score.}
 \item{n_levels}{The number of levels to use. Defaults to the traditional
 5 levels.}
 
+\item{score_dist}{The distribution by which scores should be approximated.
+The default "norm" will return thresholds which approximate a
+standard normal distribution. Choosing "unif" will return thresholds
+which approximate a uniform distribution.}
+
 \item{centre}{The centre of the normal distribution from which the thresholds
-are taken. See 'Details'.}
+are taken.}
 }
 \value{
 A data frame with a row per trial (numbered 1 to \code{n_sim}) with

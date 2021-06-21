@@ -1,0 +1,156 @@
+---
+title: "Internal consistency of goal scores"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Internal consistency of goal scores}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: ../inst/REFERENCES.bib
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.height = 3, fig.width = 5
+)
+```
+
+```{r setup}
+library(gasr)
+library(dplyr)
+```
+
+A key metric in the theory of GAS, and in psychometrics in general, is *internal consistency*.
+This concept is discussed in Chapter 9 (p. 192) of @Kiresuk1994, where they cite the following definition:
+
+>Internal consistency refers to an estimate of test reliability based upon the average intercorrelation of items within the test [@Nunnally1978].
+
+>The average scale intercorrelation can be estimated most easily by the intraclass correlation obtained from a subjects-by-scales analysis of variance.
+
+We've [shown elsewhere](data-generating-model.html) that the ICC of continuous goal scores $y_{ij}$ and $y_{ij'}$ is a function of treatment group:
+
+$$
+\rho_g = \frac{\sigma_u^2}{\sigma_u^2 + g \sigma_B^2 + \sigma_{\epsilon}^2}.
+$$
+
+To compute this empirically, @Kiresuk1994 give the following formula:
+
+$$
+\tag{9.7}
+\bar{r}_{ij} = \frac{\text{MS}_B - \text{MS}_W}{\text{MS}_B + (k - 1) \text{MS}_W},
+$$
+
+where $\bar{r}_{ij}$ is the average scale intercorrelation, $\text{MS}_B$ is the between-subjects mean square, $\text{MS}_W$ is the within-subjects mean square, and $k$ is the number of scales (goals) per subject.
+
+<details><summary>Proof</summary>
+
+For $n$ subjects with $k$ goals each and no treatment effect, the between-subjects mean square (on the latent score $y_{ij}$) is
+
+$$
+\text{MS}_B = k\sigma_u^2 + \sigma_e^2
+$$
+
+with degrees of freedom $df = n-1$, where $\sigma_u^2$ is the subject-level random effect variance, and $\sigma_{\epsilon}^2$ is the goal-level random effect variance.
+
+The within-subjects mean square is
+
+$$
+\text{MS}_W = \sigma_{\epsilon}^2
+$$
+
+with degrees of freedom $df = n(k-1)$.
+
+Rearranging $\text{MS}_B$ in terms of the subject-level variance:
+
+$$
+\sigma_u^2 = \frac{\text{MS}_B - \sigma_{\epsilon}^2}{k} = \frac{\text{MS}_B - \text{MS}_W}{k}
+$$
+
+Then Pearson's correlation is calculated as:
+
+$$
+\begin{align}
+\bar{r}_{ij} &= \frac{\sigma_u^2}{\sigma_u^2 + \sigma_{\epsilon}^2} \\
+&= \frac{\frac{\text{MS}_B - \text{MS}_W}{k}}{\frac{\text{MS}_B - \text{MS}_W}{k} + \text{MS}_W} \\
+&= \frac{\text{MS}_B - \text{MS}_W}{\text{MS}_B + (k - 1) \text{MS}_W}
+\end{align}
+$$
+
+</details>
+
+For instance, simulate 20 subjects in a control group with three goals each:
+
+```{r}
+gas_data <- sim_trial(n_subjects = 20, n_goals = 3,
+                      group_allocation = list("control" = 1.0))
+```
+
+Manually compute the total between-subjects sum of squares (SS) and mean:
+
+```{r}
+gas_data_between <- gas_data %>%
+  mutate(grand_mean = mean(score_continuous)) %>%
+  group_by(grand_mean, subject_id) %>%
+  summarise(subject_mean = mean(score_continuous),
+            .groups = "drop") %>%
+  summarise(
+    ss_b = sum((subject_mean - grand_mean)^2),
+    df = n() - 1,
+    ms_b = ss_b / df
+  )
+gas_data_between
+```
+
+And within-subjects:
+
+```{r}
+gas_data_within <- gas_data %>%
+  group_by(subject_id) %>%
+  summarise(
+    ss_subj = sum((score_continuous - mean(score_continuous))^2),
+    .groups = "drop"
+  ) %>%
+  summarise(
+    ss_w = sum(ss_subj),
+    df = n() * (3 - 1), # n*(k-1)
+    ms_w = ss_w / df
+  )
+gas_data_within
+```
+
+Then the inter-correlation is:
+
+```{r}
+(gas_data_between$ms_b - gas_data_within$ms_w) /
+  (gas_data_between$ms_b + (3 - 1) * gas_data_within$ms_w)
+```
+
+
+
+$$
+\bar{r}_{ij} = \frac{\text{MS}_B - \text{MS}_W}{\text{MS}_B + (k-1) \text{MS}_W}
+$$
+
+```{r}
+
+```
+
+
+```{r}
+aov(score_continuous ~ subject_id, data = gas_data) %>%
+  summary()
+```
+
+
+```{r}
+gas_data
+```
+
+
+
+When the number of 
+
+@Streiner2008
+
+## References

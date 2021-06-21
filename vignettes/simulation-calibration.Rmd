@@ -1,0 +1,314 @@
+---
+title: "Simulation calibration"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Simulation calibration}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: ../inst/REFERENCES.bib
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.height = 3, fig.width = 5
+)
+```
+
+```{r setup}
+library(gasr)
+library(knitr)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(ggplot2)
+```
+
+In their original formulation of goal attainment scaling, @Kiresuk1968 assumed that scores on any well-constructed individual scale would have a theoretical distribution with a mean of zero and a standard deviation of zero.
+
+For the latent goal score formula (see the [model vignette](data-generating-model.html) for more information):
+
+$$
+y_{ij} = b_0 + u_i + g_i b_{ij} + \epsilon_{ij},
+$$
+consider the reference simulation scenario described by @Urach2019:
+
+* Parallel group design with equal per group sample size $m/2$.
+* Overall sample size $m = 40$.
+* Thresholds $c_t = \Phi^{-1} (0.2t)$, $t = 0, \dots, 5$.
+    * $\Phi^{-1}$ denotes the inverse of the cumulative standard normal distribution function.
+* The number of goals $n_i$ are uniformly distributed on $(1, \dots, n_{\text{max}}$) with $n_{\text{max}} = 5$.
+* The treatment effects $b_{ij}$ are assumed to be uniformly distributed on $(0, 2\delta)$ for fixed constant $\delta$.
+    * $B = U(0, 2\delta)$, $E(b_{ij}) = \delta$, $\text{Var}(b_{ij}) = \delta^{2/3}$.
+* The mean response in the control group is set to zero.
+    * $b_0 = 0$, $\mu_0 = 0$.
+* Correlations fixed by setting the variance of the random effects:
+    * $\sigma_u^2 = \rho_0$, and
+    * $\sigma_{\epsilon}^2 = 1 - \rho_0$, therefore
+    * equation (2) is $\rho_g = \rho_0 / (g\sigma_B^2 + 1)$.
+        * $\rho_0$ in the control group, and
+        * $\rho_1 = \rho_0 / (\sigma_B^2 + 1)$ in the treatment group.
+
+Then the expected values of the latent scores:
+
+$$
+\tag{1}
+\begin{align}
+E(y_{ij}| g_i = g) &= E(b_0) + E(u_i) + E(g b_{ij}) + E(\epsilon_{ij}) \\
+&= g \delta
+\end{align}
+$$
+
+And the variance:
+
+$$
+\tag{2}
+\begin{align}
+\text{Var}(y_{ij} | g_i = g) &= \text{Var}(b_0) + \text{Var}(u_i) + g^2\text{Var}(b_{ij}) + \text{Var}(\epsilon_{ij}) \\
+&= 0 + \sigma_u^2 + g^2 \frac{\delta^{2/3}}{3} + \sigma_\epsilon^2 \\
+&= \sigma_u^2 + g \frac{\delta^{2/3}}{3} + \sigma_\epsilon^2 \\
+&= \rho_0 + g \frac{\delta^{2/3}}{3}  + 1 - \rho_0 \\
+&= g \frac{\delta^{2/3}}{3}  + 1 \\
+\end{align}
+$$
+
+Clearly, in the control group, the goal scores are distributed as $N(0, 1)$.
+We can show this empirically with 100 simulations of control arm data only:
+
+```{r}
+set.seed(11)
+
+n_sims <- 100
+gas_sims <- tibble(sim = 1:n_sims) %>%
+  # Randomly choose rho_0, which will determine sigma_u and sigma_e
+  mutate(
+    rho_0 = runif(n_sims, 0, 1)
+  ) %>%
+  mutate(
+    data = map2(
+      sim, rho_0,
+      ~sim_trial(
+        n_subjects = 20, sigma_u = sqrt(.y),
+        group_allocation = list("control" = 1.0),
+        random_allocation = FALSE,
+        n_goals_range = c(1, 5), sigma_e = sqrt(1 - .y),
+        delta = 0.5, # Doesn't actually matter since there is no treatment group
+        n_levels = 5, score_dist = "unif"
+      )
+    )
+  )
+
+gas_sims %>%
+  unnest(data) %>%
+  group_by(sim) %>%
+  summarise(mu_y = mean(score_continuous), sd_y = sd(score_continuous),
+            mu_x = mean(score_discrete), sd_x = sd(score_discrete),
+            .groups = "drop") %>%
+  pivot_longer(cols = mu_y:sd_x, names_to = "var", values_to = "val") %>%
+  separate(var, into = c("statistic", "score"), sep = "_") %>%
+  mutate(
+    statistic = factor(statistic, levels = c("sd", "mu")),
+    score = factor(score, levels = c("y", "x"),
+                   labels = c("Continuous y", "Discrete x"))
+  ) %>%
+  ggplot(aes(y = statistic, x = val)) +
+  geom_jitter(width = 0, height = 0.2, alpha = 0.2) +
+  geom_boxplot(outlier.shape = NA, fill = NA, width = 0.2, size = 1) +
+  facet_wrap(~score, nrow = 2)
+```
+
+
+On the continuous scale, $y_{ij}$ looks to follow the theoretical $N(0, 1)$ distribution well.
+On the discrete scale, however, $x_{ij}$ has a higher standard deviation and wider range of mean values.
+
+To approximate an $N(0, 1)$ distribution on the 5-point discretized scale, we require roughly the following distribution of scores (see @Kiresuk1994 p. 199):
+
+```{r echo=FALSE}
+d <- tribble(
+  ~score_discrete, ~p,
+  "-2", 0.07,
+  "-1", 0.21,
+  "0", 0.43,
+  "+1", 0.21,
+  "+2", 0.07
+) %>%
+  mutate(score_discrete = forcats::fct_inorder(score_discrete))
+
+d %>%
+  ggplot(aes(y = score_discrete, x = p)) +
+  geom_col() +
+  geom_text(aes(label = scales::percent(p)),
+            hjust = 0, nudge_x = 0.005) +
+  labs(
+    x = "Percentage of scores", y = "Discrete goal scores",
+    title = stringr::str_c(
+      "Distribution of discrete goal scores required to\n",
+      "approximate a normal distribution with mean 0 and SD 1"
+    )
+  ) +
+  scale_x_continuous(labels = scales::percent, limits = c(0, 0.5))
+```
+
+We can approach this shape by adjusting the parameters which generate the continuous scores ($\sigma_u$, $\sigma_e$, $b_0$), but it makes more sense to adjust the *thresholds* ($c_t$) which discretize the scores.
+
+The thresholds proposed in the reference scenario by @Urach2019 are equally spaced points of the inverse cumulative standard normal distribution $\Phi^{-1}$:
+
+```{r}
+d <- tibble(
+  p = seq(0, 1, 0.01),
+  phi = stats::qnorm(p, mean = 0, sd = 1)
+)
+
+d %>%
+  ggplot(aes(p, phi)) +
+  geom_line() +
+  scale_x_continuous(breaks = seq(0, 1.0, 0.2)) +
+  geom_vline(xintercept = seq(0, 1, 0.2), lty = 2) +
+  labs(title = "Inverse cumulative standard normal distribution\n(mean 0, SD 1)",
+       y = "Phi^{-1}", x = "Probability")
+```
+
+
+The vertical dashed lines above, at 0, 0.2, 0.4, 0.6, 0.8, and 1.0, divide the domain into quintiles.
+The corresponding values of $c_t = \Phi^{-1}(0.2t)$, for $t = 0, \dots, 5$ define the thresholds:
+
+```{r}
+thresh <- tibble(
+  t = 0:5,
+  percentile = t * 0.2,
+  c_t = stats::qnorm(percentile, mean = 0, sd = 1) %>% round(2)
+)
+thresh %>%
+  kable()
+```
+
+Applying these cuts to a standard normal distribution will result in approximately equal proportions among the quintiles:
+
+```{r}
+d <- tibble(x_continuous = rnorm(1e4, mean = 0, sd = 1))
+
+d %>%
+  mutate(x_discrete = cut(x_continuous, breaks = thresh$c_t)) %>%
+  count(x_discrete) %>%
+  mutate(p = n / sum(n)) %>%
+  ggplot(aes(x = x_discrete, y = n)) +
+  geom_text(aes(label = scales::percent(p, accuracy = 0.1)),
+             vjust = 0, nudge_y = 50) +
+  geom_col()
+```
+
+We can impose the approximate normal distribution by re-defining the cutpoints on the inverse cumulative normal distribution:
+
+```{r}
+thresh <- tibble(
+  t = 0:5,
+  percentile = c(0, 0.07, 0.28, 0.72, 0.93, 1),
+  c_t = stats::qnorm(percentile, mean = 0, sd = 1) %>% round(2)
+)
+kable(thresh)
+
+d %>%
+  mutate(x_discrete = cut(x_continuous, breaks = thresh$c_t)) %>%
+  count(x_discrete) %>%
+  mutate(p = n / sum(n)) %>%
+  ggplot(aes(x = x_discrete, y = n)) +
+  geom_text(aes(label = scales::percent(p, accuracy = 0.1)),
+             vjust = 0, nudge_y = 50) +
+  geom_col()
+```
+
+This type of calibration is not just a numerical/theoretical exercise.
+Setting realistic attainment levels is a an important skill of a GAS interviewer, and can have important implication on the interpreation of GAS scores.
+
+By default, the `create_thresholds()` function will return thresholds that attempt to approximate a normal distribution:
+
+```{r}
+create_thresholds(n_levels = 5, score_dist = "norm")
+create_thresholds(n_levels = 7, score_dist = "norm")
+```
+
+Here are the summary statistics of the previously simulated data, but with the discrete scores re-categorized according to the above thresholds:
+
+```{r}
+gas_sims %>%
+  unnest(data) %>%
+  mutate(
+    score_discrete = discretize_from_thresholds(
+      score_continuous,
+      thresholds = create_thresholds(n_levels = 5, score_dist = "norm")
+    )
+  ) %>%
+  group_by(sim) %>%
+  summarise(mu_y = mean(score_continuous), sd_y = sd(score_continuous),
+            mu_x = mean(score_discrete), sd_x = sd(score_discrete),
+            .groups = "drop") %>%
+  pivot_longer(cols = mu_y:sd_x, names_to = "var", values_to = "val") %>%
+  separate(var, into = c("statistic", "score"), sep = "_") %>%
+  mutate(
+    statistic = factor(statistic, levels = c("sd", "mu")),
+    score = factor(score, levels = c("y", "x"),
+                   labels = c("Continuous y", "Discrete x"))
+  ) %>%
+  ggplot(aes(y = statistic, x = val)) +
+  geom_jitter(width = 0, height = 0.2, alpha = 0.2) +
+  geom_boxplot(outlier.shape = NA, fill = NA, width = 0.2, size = 1) +
+  facet_wrap(~score, nrow = 2)
+```
+
+This idea is complicated slightly when adding in the treatment effect, as the expected mean, equation (1), and variance, equation (2), are shifted by $\delta$ and 
+$\frac{\delta^{2/3}}{3}$ respectively.
+For $\delta = 0.3$, this is the distribution of means and SDs from 100 simulations, with normal distribution thresholds:
+
+```{r fig.height=4, fig.width=6}
+set.seed(25)
+
+n_sims <- 100
+gas_sims <- tibble(sim = 1:n_sims) %>%
+  # Randomly choose rho_0, which will determine sigma_u and sigma_e
+  mutate(
+    rho_0 = runif(n_sims, 0, 1)
+  ) %>%
+  mutate(
+    data = map2(
+      sim, rho_0,
+      ~sim_trial(
+        n_subjects = 40, sigma_u = sqrt(.y),
+        group_allocation = list("control" = 0.5, "treatment" = 0.5),
+        random_allocation = FALSE,
+        n_goals_range = c(1, 5), sigma_e = sqrt(1 - .y),
+        delta = 0.3,
+        n_levels = 5, score_dist = "norm"
+      )
+    )
+  )
+
+gas_sims %>%
+  unnest(data) %>%
+  group_by(sim, group) %>%
+  summarise(mu_y = mean(score_continuous), sd_y = sd(score_continuous),
+            mu_x = mean(score_discrete), sd_x = sd(score_discrete),
+            .groups = "drop") %>%
+  pivot_longer(cols = mu_y:sd_x, names_to = "var", values_to = "val") %>%
+  separate(var, into = c("statistic", "score"), sep = "_") %>%
+  mutate(
+    statistic = factor(statistic, levels = c("sd", "mu")),
+    score = factor(score, levels = c("y", "x"),
+                   labels = c("Continuous y", "Discrete x"))
+  ) %>%
+  ggplot(aes(y = statistic, x = val, color = group)) +
+  geom_jitter(width = 0, height = 0.2, alpha = 0.2) +
+  geom_boxplot(outlier.shape = NA, fill = NA, width = 0.3, size = 1) +
+  # Plot the expected values in the treatment group
+  geom_vline(
+    xintercept = c(0.3, sqrt(1 + 0.3^(2/3)/3)), lty = 2, size = 1
+  ) +
+  facet_wrap(~score, nrow = 2)
+```
+
+
+## Treatment effect size
+
+TBD: translate effect sizes on the latent variable scale to the discretized scale (including T-scores).
+
+## References
