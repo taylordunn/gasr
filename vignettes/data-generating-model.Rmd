@@ -20,6 +20,7 @@ knitr::opts_chunk$set(
 library(gasr)
 library(dplyr)
 library(ggplot2)
+library(purrr)
 library(tidyr)
 library(stringr)
 ```
@@ -158,6 +159,7 @@ E[y_{ij} - E(y_{ij})] [y_{ij'} - E(y_{ij'})] &=
 &+ \text{Cov}(u_i, \epsilon_{ij}) + g_i \text{Cov}(b_{ij'}, \epsilon_{ij})
 \end{align}
 $$
+
 As already established, we have independence between every pair combination of $b_0$, $u_i$, $b_{ij}$, $b_{ij'}$, $\epsilon_{ij}$, and $\epsilon_{ij'}$, and so all of the covariance terms are zero:
 
 $$
@@ -186,7 +188,7 @@ such that $x_{ij} = t - l - 1$ if $c_{t-1} < y_{ij} \leq c_t$ for $t = 0, \dots,
 This means that $x_{ij}$ will range from $-l$ to $l$.
 
 Traditionally, a 5-point attainment scale is employed in GAS.
-This corresponds to $l = 2$, and $s = 1, \dots, 5$:
+This corresponds to $l = 2$, and $t = 1, \dots, 5$:
 
 $$
 \tag{8}
@@ -289,7 +291,7 @@ See (this vignette)[simulation-calibration.html] for more discussion about this 
 
 * The number of goals $n_i$ are uniformly distributed on $(1, \dots, n_{\text{max}}$) with $n_{\text{max}} = 5$.
 * The treatment effects $b_{ij}$ are assumed to be uniformly distributed on $(0, 2\delta)$ for fixed constant $\delta$.
-    * $B = U(0, 2\delta)$, $E(b_{ij}) = \delta$, $\text{Var}(b_{ij}) = \delta^{2/3}$.
+    * $B = U(0, 2\delta)$, $E(b_{ij}) = \delta$, $\text{Var}(b_{ij}) = \frac{\delta^{2/3}}{3}$.
 * The mean response in the control group is set to zero.
     * $b_0 = 0$, $\mu_0 = 0$.
 * Correlations fixed by setting the variance of the random effects:
@@ -317,11 +319,43 @@ and the variance of $y_{ij}$ can be decomposed into:
 $$
 \begin{align}
 \text{Var}(y_{ij}) = \sigma^2 &= \text{Var}(b_0) +\text{Var}(u_i) + \text{Var}(b_{ij}) + \text{Var}(\epsilon_{ij}) \\
-&= 0 + \sigma_u^2 + \delta^{2/3} + \sigma_{\epsilon}^2 \\
-&= \rho_0 + \delta^{2/3} + (1 - \rho_0) \\
-&= \delta^{2/3} + 1
+&= 0 + \sigma_u^2 + \frac{\delta^{2/3}}{3} + \sigma_{\epsilon}^2 \\
+&= \rho_0 + \frac{\delta^{2/3}}{3} + (1 - \rho_0) \\
+&= \frac{\delta^{2/3}}{3} + 1
 \end{align}
 $$
+
+```{r eval=FALSE, include=FALSE}
+# We can show this empirically with 100 simulations
+set.seed(4)
+d <- tibble(
+  sim = 1:100,
+  data = map(
+    sim,
+    ~sim_trial(n_subjects = 40, delta = 1,
+               # Setting rho_0 = 0.3
+               sigma_u = sqrt(0.7), sigma_e = sqrt(0.3))
+  )
+)
+d %>%
+  unnest(data) %>%
+  group_by(group, sim) %>%
+  summarise(
+    mu = mean(score_continuous), sd = sd(score_continuous),
+    .groups = "drop_last"
+  ) %>%
+  group_by(group) %>%
+  summarise(
+    n_sim = n(),
+    mu = mean(mu), mu_se = mu / sqrt(n_sim),
+    sd = mean(sd), sd_se = sd / sqrt(n_sim),
+    .groups = "drop"
+  )
+# mu = 0.0 and 1.0 for control and treatment, as expected
+# control: sd = 0.98 -> var = 0.96 ~ 1
+# treatment: sd = 1.14 -> var = 1.30 (~4/3)
+```
+
 The expected value of the discrete scores are more complicated.
 Derivations are provided by @Urach2019 in Appendix 1, which we will attempt to work through here.
 
@@ -354,7 +388,10 @@ E(X) &= \int_{-\infty}^{\infty} g(x) f_X(x) dx \ \ \ \ \ \text{if X is continuou
 \end{align}
 $$
 
-With $f_b$ representing the density of $b_{ij}$, the non-central moments of $x_{ij}$ for $a >0$ are:
+With $f_b$ representing the density of $b_{ij}$.
+For the uniform distribution in the reference scenario, the density function is $\frac{1}{2\delta-0} = \frac{1}{2\delta}$ for $b \in [0, 2\delta]$.
+
+The non-central moments of $x_{ij}$ for $a >0$ are:
 
 $$
 \tag{10}
@@ -364,7 +401,7 @@ E(x_{ij}^a | g_i = g) &= \int_B E(x_{ij}|g_i = g, b_{ij} = b) f_b (b) db \\
 \end{align}
 $$
 
-I don't quite follow this, but the central moments are then given by:
+Then central moments are then given by:
 
 $$
 \begin{align}
@@ -416,25 +453,26 @@ d <- tibble(
 d %>%
   ggplot(aes(x = b, y = phi)) +
   geom_line(aes(color = factor(g))) +
-  facet_wrap(~t_label)
+  facet_wrap(~t_label) +
+  theme(legend.position = c(0.9, 0.2))
 ```
 
-And then we take the difference in adjacent distributions, which are shown below for the treatment group ($g = 1$):
+And then we take the difference in adjacent distributions to get the probability of different values of $x_{ij}$, which are shown below for the treatment group ($g = 1$):
 
 ```{r fig.height=3, fig.width=6}
 c_t <- stats::qnorm(seq(0, 1, 0.2), mean = 0, sd = 1)
 calc_phi_diff <- function(b, t) {
-  pnorm(c_t[t + 1] - b, mean = 0, sd = 1) -
-    pnorm(c_t[t] - b, mean = 0, sd = 1)
+  pnorm(c_t[t] - b, mean = 0, sd = 1) -
+    pnorm(c_t[t - 1] - b, mean = 0, sd = 1)
 }
 
-tibble(t = 1:5) %>%
+tibble(t = 2:6) %>%
   crossing(b = seq(-3, 3, 0.01)) %>%
   mutate(
-    phi_diff = calc_phi_diff(b, t),
-    t_label = str_c("phi(t = ", t + 1, ") - phi(t = ", t, ")")
+    prob = calc_phi_diff(b, t),
+    t_label = str_c("phi(t = ", t, ") - phi(t = ", t - 1, ")")
   ) %>%
-  ggplot(aes(x = b, y = phi_diff)) +
+  ggplot(aes(x = b, y = prob)) +
   geom_line(aes(color = t_label)) +
   scale_color_viridis_d()
 ```
@@ -443,32 +481,34 @@ tibble(t = 1:5) %>%
 And then, we can `integrate()` equation (11) for different values of $t$ and $delta$ to get the expected values:
 
 ```{r fig.width=5}
-integrate_phi <- function(t, delta) {
+integrate_phi <- function(t, delta, subdivisions = 1000) {
   stats::integrate(
     f = function(b) calc_phi_diff(b, t),
-    lower = 0, upper = 2 * delta, subdivisions = 100
+    lower = 0, upper = 2 * delta, subdivisions = subdivisions
   )$value
 }
-
-phi_integral <- tibble(t = as.integer(1:5)) %>%
+phi_integral <- tibble(t = as.integer(2:6)) %>%
   crossing(delta = seq(0.01, 5, 0.01)) %>%
   rowwise() %>%
   mutate(
     integral = integrate_phi(t, delta)
   ) %>%
   ungroup()
+```
 
+
+```{r fig.width=5}
 # Compute moments of the discrete goal scales by summing over t
 x_moments <- phi_integral %>%
   group_by(delta) %>%
   summarise(
-    integral_sum1 = sum((t - 3) * integral) / (2 * delta),
-    integral_sum2 = sum((t - 3)^2 * integral) / (2 * delta),
+    integral_sum1 = sum((t - 4) * integral),
+    integral_sum2 = sum((t - 4)^2 * integral),
     .groups = "drop"
   ) %>%
   mutate(
-    mu = integral_sum1,
-    var = integral_sum2 - mu^2
+    mu = integral_sum1 / (2 * delta),
+    var = (integral_sum2 / (2 * delta)) - mu^2
   )
 x_moments %>%
   transmute(delta, mu, sigma = sqrt(var)) %>%
@@ -479,6 +519,203 @@ x_moments %>%
 ```
 
 The shape of the curves looks close to Figure 2(a), but I haven't quite gotten the scale right.
+
+```{r eval=FALSE, include=FALSE}
+# Test this empirically
+set.seed(74)
+
+rho_0 <- 0
+var_u <- rho_0
+var_e <- 1 - rho_0
+
+sim_data <-
+  crossing(
+    delta = seq(0, 5, 0.5),
+    sim = 1:10
+  ) %>%
+  mutate(
+    data = map(
+      delta,
+      ~sim_trial(
+        n_subjects = 100, sigma_u = sqrt(var_u),
+        group_allocation = list(treatment = 1.0),
+        random_allocation = FALSE, score_dist = "unif",
+        n_goals = 1, sigma_e = sqrt(var_e),
+        delta = .x
+      )
+    )
+  ) %>%
+  mutate(
+    mu = map_dbl(
+      data,
+      ~mean(.$score_discrete)
+    ),
+    sigma = map_dbl(
+      data,
+      ~sd(.$score_discrete)
+    )
+  ) %>%
+  pivot_longer(c(mu, sigma), names_to = "moment", values_to = "value")
+x_moments %>%
+  transmute(delta, mu, sigma = sqrt(var)) %>%
+  pivot_longer(c(mu, sigma), names_to = "moment", values_to = "value") %>%
+  ggplot(aes(x = delta, y = value, color = moment)) +
+  geom_line() +
+  scale_y_continuous(limits = c(0, 2.5)) +
+  geom_point(data = sim_data)
+```
+
+Likewise, the joint probability of $x_{ij}$ and $x_{ij'}$ for $j \neq j'$:
+
+$$
+\tag{12}
+P(x_{ij} = t, x_{ij'} = t'|g_i = g, b_{ij} = b, b_{ij'} = b') = P(z_{ij} \in (c_{t-1} - gb, c_t - gb], z_{ij'} \in (c_{t-1} - gb', c_t - gb'])
+$$
+
+where $z_{ij} = u_i + \epsilon_{ij}$ such that $(z_{ij})^{n_i}_{j=1}$ is multivariate normal with mean 0, $\text{Var}(z_{ij}) = \sigma_u^2 + \sigma_{\epsilon}^2$ and $\text{Cov}(z_{ij}, z_{ij'}) = \sigma_u^2$.
+
+Computing these probabilities involves computing a bivariate cumulative normal distribution:
+
+```{r}
+rho_0 <- 0.3
+var_u <- rho_0
+var_e <- 1 - rho_0
+
+library(mvtnorm)
+calc_bivariate_integrand <- function(b, t1, t2) {
+  pmvnorm(
+    lower = c(c_t[t1 - 1] - b,
+              c_t[t2 - 1] - b),
+    upper = c(c_t[t1] - b,
+              c_t[t2] - b),
+    mean = c(0, 0),
+    corr = matrix(c(var_u + var_e, var_u,
+                    var_u, var_u + var_e),
+                  nrow = 2, ncol = 2),
+    keepAttr = FALSE
+  )
+}
+
+prob_x1_x2 <- crossing(
+  t1 = 2:6, t2 = 2:6,
+  b = seq(-3, 3, 0.1)
+) %>%
+  mutate(
+    prob = pmap_dbl(
+      list(b, t1, t2),
+      calc_bivariate_integrand
+    )
+  ) %>%
+  mutate(x1 = forcats::fct_inorder(str_c("x1 = ", t1 - 4)),
+         x2 = forcats::fct_inorder(str_c("x2 = ", t2 - 4)))
+
+prob_x1_x2 %>%
+  ggplot(aes(x = b, y = prob)) +
+  geom_line() +
+  facet_grid(x1 ~ x2)
+```
+
+This is showing us that the probability of both $x_{ij}$ (`x1` above) and $x_{ij'}$ (`x2`) are unlikely to be the same (the diagonals above) except for the extreme values of $b$.
+
+This probability is used to compute the expected value of the product of $x_{ij}$ and $x_{ij'}$:
+
+$$
+E(x_{ij} x_{ij'}| g_i= g) = \int_B \int_B \sum_{t \in \mathcal{T}} \sum_{t \in \mathcal{T}} t t' P(x_{ij} = t, x_{ij'} = t'|g_i = g, b_{ij} = b, b_{ij'} = b') f_b(b) f_b(b') db db'
+$$
+
+```{r eval=FALSE}
+# Re-define the previous integrade so that b1 and vary separate from b2
+calc_bivariate_integrand <- function(b1, b2, t1, t2) {
+  pmvnorm(
+    lower = c(c_t[t1 - 1] - b1,
+              c_t[t2 - 1] - b2),
+    upper = c(c_t[t1] - b1,
+              c_t[t2] - b2),
+    mean = c(0, 0),
+    corr = matrix(c(var_u + var_e, var_u,
+                    var_u, var_u + var_e),
+                  nrow = 2, ncol = 2),
+    keepAttr = FALSE
+  )
+}
+
+# Function to compute the double integral
+integrate_prob_x1_x2 <- function(t1, t2, delta) {
+  stats::integrate(
+    f = function(b1) {
+      # Need to map values here because integrate() passes multiple b values
+      #  at once, but pmvnorm only takes one value at a time
+      map_dbl(
+        b1,
+        function(b1) {
+          stats::integrate(
+            f = function(b2) {
+              map_dbl(
+                b2,
+                function(b2) {
+                  calc_bivariate_integrand(b1, b2, t1, t2)
+                }
+              )
+            },
+            lower = 0, upper = 2 * delta, subdivisions = 100
+          )$value
+        }
+      )
+    },
+    lower = 0, upper = 2 * delta, subdivisions = 100
+  )$value
+}
+
+e_x1_x2 <- crossing(
+  t1 = 2:6, t2 = 2:6,
+  delta = seq(0.01, 5, 0.1)
+) %>%
+  mutate(
+    integral = pmap_dbl(
+      list(t1, t2, delta),
+      integrate_prob_x1_x2
+    )
+  ) %>%
+  group_by(delta) %>%
+  summarise(
+    value = sum((t1 - 4) * (t2 - 4) * integral),
+    .groups = "drop"
+  ) %>%
+  mutate(value = value / (2 * delta)^2)
+```
+
+```{r echo=FALSE}
+# To save time while building the vignette, the results of this integration
+#  were saved separately (took about 80 seconds)
+e_x1_x2 <- readr::read_rds(system.file("extdata/e-x1-x2.rds",
+                                       package = "gasr"))
+```
+
+```{r}
+e_x1_x2 %>%
+  ggplot(aes(delta, value)) +
+  geom_line()
+```
+
+Finally, the expected correlation is given by:
+
+$$
+\rho_{x,g} = \text{Cov}(x_{ij}, x_{ij'}| g_i = g) = E(x_{ij}, x_{ij'} | g_i = g) - \mu_g^2
+$$
+
+```{r}
+e_x1_x2 %>%
+  mutate(delta = round(delta, 2)) %>%
+  left_join(
+    x_moments %>% transmute(delta = round(delta, 2), mu),
+    by = "delta"
+  ) %>%
+  mutate(rho_xg = value - mu^2) %>%
+  ggplot(aes(delta, rho_xg)) +
+  geom_line()
+```
+
+Once again, looks like the right shape, but not the right scale.
 
 </details>
 
