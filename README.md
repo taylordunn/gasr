@@ -43,9 +43,9 @@ For example, simulate 50 subjects, randomly allocated to “treatment” and
 library(gasr)
 library(tidyverse, quietly = TRUE)
 #> -- Attaching packages --------------------------------------- tidyverse 1.3.1 --
-#> v ggplot2 3.3.3     v purrr   0.3.4
-#> v tibble  3.1.2     v dplyr   1.0.6
-#> v tidyr   1.1.3     v stringr 1.4.0
+#> v ggplot2 3.3.5     v purrr   0.3.4
+#> v tibble  3.1.5     v dplyr   1.0.7
+#> v tidyr   1.1.4     v stringr 1.4.0
 #> v readr   1.4.0     v forcats 0.5.1
 #> -- Conflicts ------------------------------------------ tidyverse_conflicts() --
 #> x dplyr::filter() masks stats::filter()
@@ -59,8 +59,8 @@ glimpse(gas_data)
 #> Rows: 50
 #> Columns: 3
 #> $ subject_id <chr> "S01", "S02", "S03", "S04", "S05", "S06", "S07", "S08", "S0~
-#> $ subject_re <dbl> -0.33488827, -0.05404165, 0.12604985, -0.17719606, 0.428864~
-#> $ group      <fct> control, treatment, control, treatment, control, control, t~
+#> $ subject_re <dbl> 0.68209924, -0.39641017, -0.22204358, -0.34407669, -0.35949~
+#> $ group      <fct> control, control, treatment, treatment, treatment, control,~
 ```
 
 Add between 3 and 6 goals to each subject:
@@ -72,10 +72,10 @@ glimpse(gas_data)
 #> Rows: 50
 #> Columns: 5
 #> $ subject_id <chr> "S01", "S02", "S03", "S04", "S05", "S06", "S07", "S08", "S0~
-#> $ subject_re <dbl> -0.33488827, -0.05404165, 0.12604985, -0.17719606, 0.428864~
-#> $ group      <fct> control, treatment, control, treatment, control, control, t~
-#> $ n_goals    <int> 5, 6, 4, 6, 6, 4, 3, 4, 4, 4, 4, 6, 3, 6, 6, 5, 4, 6, 5, 3,~
-#> $ goals      <list> [<tbl_df[5 x 2]>], [<tbl_df[6 x 2]>], [<tbl_df[4 x 2]>], [~
+#> $ subject_re <dbl> 0.68209924, -0.39641017, -0.22204358, -0.34407669, -0.35949~
+#> $ group      <fct> control, control, treatment, treatment, treatment, control,~
+#> $ n_goals    <int> 5, 6, 6, 4, 5, 3, 4, 4, 3, 6, 6, 4, 4, 3, 5, 3, 3, 4, 6, 3,~
+#> $ goals      <list> [<tbl_df[5 x 2]>], [<tbl_df[6 x 2]>], [<tbl_df[6 x 2]>], [~
 ```
 
 Note that `goals` is returned as a list column, so that the data frame
@@ -89,11 +89,11 @@ gas_data %>%
 #> Rows: 237
 #> Columns: 6
 #> $ subject_id <chr> "S01", "S01", "S01", "S01", "S01", "S02", "S02", "S02", "S0~
-#> $ subject_re <dbl> -0.33488827, -0.33488827, -0.33488827, -0.33488827, -0.3348~
-#> $ group      <fct> control, control, control, control, control, treatment, tre~
-#> $ n_goals    <int> 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 4, 4, 4, 4, 6, 6, 6, 6, 6,~
-#> $ goal_num   <int> 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 1, 2, 3, 4, 5,~
-#> $ goal_re    <dbl> 0.54680009, -0.58785816, -0.09704970, -0.91633247, 0.826465~
+#> $ subject_re <dbl> 0.6820992, 0.6820992, 0.6820992, 0.6820992, 0.6820992, -0.3~
+#> $ group      <fct> control, control, control, control, control, control, contr~
+#> $ n_goals    <int> 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 4, 4, 4,~
+#> $ goal_num   <int> 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 1, 2, 3,~
+#> $ goal_re    <dbl> -0.2165042943, -0.2881376583, -0.0855755632, -0.1695290143,~
 ```
 
 A randomly sampled treatment effect can be added to each goal. This
@@ -113,10 +113,10 @@ glimpse(gas_data_nested)
 #> Rows: 50
 #> Columns: 5
 #> $ subject_id <chr> "S01", "S02", "S03", "S04", "S05", "S06", "S07", "S08", "S0~
-#> $ subject_re <dbl> -0.33488827, -0.05404165, 0.12604985, -0.17719606, 0.428864~
-#> $ group      <fct> control, treatment, control, treatment, control, control, t~
-#> $ n_goals    <int> 5, 6, 4, 6, 6, 4, 3, 4, 4, 4, 4, 6, 3, 6, 6, 5, 4, 6, 5, 3,~
-#> $ goals      <list> [<tbl_df[5 x 3]>], [<tbl_df[6 x 3]>], [<tbl_df[4 x 3]>], [~
+#> $ subject_re <dbl> 0.68209924, -0.39641017, -0.22204358, -0.34407669, -0.35949~
+#> $ group      <fct> control, control, treatment, treatment, treatment, control,~
+#> $ n_goals    <int> 5, 6, 6, 4, 5, 3, 4, 4, 3, 6, 6, 4, 4, 3, 5, 3, 3, 4, 6, 3,~
+#> $ goals      <list> [<tbl_df[5 x 3]>], [<tbl_df[6 x 3]>], [<tbl_df[6 x 3]>], [~
 ```
 
 Method B is to `unnest`, `group_by` subject, and apply:
@@ -132,11 +132,11 @@ glimpse(gas_data)
 #> Rows: 237
 #> Columns: 7
 #> $ subject_id   <chr> "S01", "S01", "S01", "S01", "S01", "S02", "S02", "S02", "~
-#> $ subject_re   <dbl> -0.33488827, -0.33488827, -0.33488827, -0.33488827, -0.33~
-#> $ group        <fct> control, control, control, control, control, treatment, t~
-#> $ n_goals      <int> 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 4, 4, 4, 4, 6, 6, 6, 6, ~
-#> $ goal_num     <int> 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 1, 2, 3, 4, ~
-#> $ goal_re      <dbl> 0.54680009, -0.58785816, -0.09704970, -0.91633247, 0.8264~
+#> $ subject_re   <dbl> 0.6820992, 0.6820992, 0.6820992, 0.6820992, 0.6820992, -0~
+#> $ group        <fct> control, control, control, control, control, control, con~
+#> $ n_goals      <int> 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 4, 4, ~
+#> $ goal_num     <int> 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 1, 2, ~
+#> $ goal_re      <dbl> -0.2165042943, -0.2881376583, -0.0855755632, -0.169529014~
 #> $ treatment_fe <dbl> 0.07395290, 0.28094961, 0.22933053, 0.06722077, 0.3775357~
 ```
 
@@ -166,13 +166,13 @@ glimpse(gas_data)
 #> Rows: 237
 #> Columns: 8
 #> $ subject_id   <chr> "S01", "S01", "S01", "S01", "S01", "S02", "S02", "S02", "~
-#> $ subject_re   <dbl> -0.33488827, -0.33488827, -0.33488827, -0.33488827, -0.33~
-#> $ group        <fct> control, control, control, control, control, treatment, t~
-#> $ n_goals      <int> 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 4, 4, 4, 4, 6, 6, 6, 6, ~
-#> $ goal_num     <int> 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 1, 2, 3, 4, ~
-#> $ goal_re      <dbl> 0.54680009, -0.58785816, -0.09704970, -0.91633247, 0.8264~
+#> $ subject_re   <dbl> 0.6820992, 0.6820992, 0.6820992, 0.6820992, 0.6820992, -0~
+#> $ group        <fct> control, control, control, control, control, control, con~
+#> $ n_goals      <int> 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 4, 4, ~
+#> $ goal_num     <int> 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 1, 2, ~
+#> $ goal_re      <dbl> -0.2165042943, -0.2881376583, -0.0855755632, -0.169529014~
 #> $ treatment_fe <dbl> 0.07395290, 0.28094961, 0.22933053, 0.06722077, 0.3775357~
-#> $ goal_weight  <int> 4, 5, 3, 1, 2, 3, 1, 2, 4, 6, 5, 3, 2, 1, 4, 6, 5, 2, 4, ~
+#> $ goal_weight  <int> 4, 5, 3, 1, 2, 3, 1, 2, 4, 6, 5, 6, 3, 4, 2, 5, 1, 1, 2, ~
 ```
 
 There are a few different options of goal weights available, which are
@@ -207,14 +207,14 @@ glimpse(gas_data)
 #> Rows: 237
 #> Columns: 9
 #> $ subject_id       <chr> "S01", "S01", "S01", "S01", "S01", "S02", "S02", "S02~
-#> $ subject_re       <dbl> -0.33488827, -0.33488827, -0.33488827, -0.33488827, -~
-#> $ group            <fct> control, control, control, control, control, treatmen~
-#> $ n_goals          <int> 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 4, 4, 4, 4, 6, 6, 6,~
-#> $ goal_num         <int> 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 1, 2, 3,~
-#> $ goal_re          <dbl> 0.54680009, -0.58785816, -0.09704970, -0.91633247, 0.~
+#> $ subject_re       <dbl> 0.6820992, 0.6820992, 0.6820992, 0.6820992, 0.6820992~
+#> $ group            <fct> control, control, control, control, control, control,~
+#> $ n_goals          <int> 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 4,~
+#> $ goal_num         <int> 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 1,~
+#> $ goal_re          <dbl> -0.2165042943, -0.2881376583, -0.0855755632, -0.16952~
 #> $ treatment_fe     <dbl> 0.07395290, 0.28094961, 0.22933053, 0.06722077, 0.377~
-#> $ goal_weight      <int> 4, 5, 3, 1, 2, 3, 1, 2, 4, 6, 5, 3, 2, 1, 4, 6, 5, 2,~
-#> $ score_continuous <dbl> 0.2119118160, -0.9227464335, -0.4319379778, -1.251220~
+#> $ goal_weight      <int> 4, 5, 3, 1, 2, 3, 1, 2, 4, 6, 5, 6, 3, 4, 2, 5, 1, 1,~
+#> $ score_continuous <dbl> 0.46559494, 0.39396158, 0.59652367, 0.51257022, 0.682~
 
 gas_data %>%
   ggplot(aes(y = group, x = score_continuous, color = group)) +
@@ -275,19 +275,19 @@ which simulates a single trial:
 ``` r
 d <- sim_trial()
 glimpse(d)
-#> Rows: 174
+#> Rows: 180
 #> Columns: 11
-#> $ subject_id       <chr> "S01", "S01", "S01", "S01", "S02", "S02", "S02", "S02~
-#> $ subject_re       <dbl> -0.08565973, -0.08565973, -0.08565973, -0.08565973, 0~
+#> $ subject_id       <chr> "S01", "S01", "S01", "S01", "S01", "S01", "S02", "S02~
+#> $ subject_re       <dbl> -0.65633196, -0.65633196, -0.65633196, -0.65633196, -~
 #> $ group            <fct> treatment, treatment, treatment, treatment, treatment~
-#> $ n_goals          <int> 4, 4, 4, 4, 6, 6, 6, 6, 6, 6, 4, 4, 4, 4, 5, 5, 5, 5,~
-#> $ goal_num         <int> 1, 2, 3, 4, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 1, 2, 3, 4,~
-#> $ goal_re          <dbl> 0.22383904, 0.08748841, 0.19362061, -0.64444722, 0.11~
-#> $ treatment_fe     <dbl> 0.591142829, 0.139487903, 0.369644185, 0.496644788, 0~
+#> $ n_goals          <int> 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 4, 4, 4, 4, 4, 4,~
+#> $ goal_num         <int> 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 1, 2,~
+#> $ goal_re          <dbl> -0.12795292, -0.97119142, 0.50615292, 0.55153895, -0.~
+#> $ treatment_fe     <dbl> 0.217357276, 0.579289882, 0.514720082, 0.442510632, 0~
 #> $ goal_weight      <dbl> 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,~
-#> $ score_continuous <dbl> 0.72932213, 0.14131658, 0.47760506, -0.23346217, 1.19~
-#> $ score_discrete   <dbl> 1, 0, 0, 0, 1, 1, 1, 1, 2, 2, 0, 1, 1, 0, 1, 1, 1, 0,~
-#> $ tscore           <dbl> 53.62738, 53.62738, 53.62738, 53.62738, 70.65591, 70.~
+#> $ score_continuous <dbl> -0.56692760, -1.04823350, 0.36454104, 0.33771762, -0.~
+#> $ score_discrete   <dbl> -1, -1, 0, 0, -1, -1, 0, -1, 0, 0, -1, -1, 0, 1, 0, 1~
+#> $ tscore           <dbl> 39.67204, 39.67204, 39.67204, 39.67204, 39.67204, 39.~
 ```
 
 Those defaults are listed below:
@@ -363,16 +363,16 @@ sim_trial(n_subjects = 20, n_goals = 3, delta = 0.5) %>%
 #> Rows: 60
 #> Columns: 11
 #> $ subject_id       <chr> "S01", "S01", "S01", "S02", "S02", "S02", "S03", "S03~
-#> $ subject_re       <dbl> -0.55753591, -0.55753591, -0.55753591, -0.05710919, -~
-#> $ group            <fct> treatment, treatment, treatment, control, control, co~
+#> $ subject_re       <dbl> 0.8835715, 0.8835715, 0.8835715, 0.4590613, 0.4590613~
+#> $ group            <fct> control, control, control, treatment, treatment, trea~
 #> $ n_goals          <dbl> 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,~
 #> $ goal_num         <int> 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3,~
-#> $ goal_re          <dbl> -0.10167264, 0.39003476, -0.49797173, 0.63681266, 0.1~
-#> $ treatment_fe     <dbl> 0.557580325, 0.058427635, 0.201604024, 0.820417159, 0~
+#> $ goal_re          <dbl> -0.33000846, 0.06039280, 0.33154187, -0.31880432, 0.2~
+#> $ treatment_fe     <dbl> 0.459003968, 0.223147959, 0.076021258, 0.330460815, 0~
 #> $ goal_weight      <dbl> 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,~
-#> $ score_continuous <dbl> -0.10162823, -0.10907352, -0.85390362, 0.57970347, 0.~
-#> $ score_discrete   <dbl> 0, 0, -1, 1, 0, 0, 1, -1, 0, 0, -1, -1, 0, 0, 0, 1, 0~
-#> $ tscore           <dbl> 45.43565, 45.43565, 45.43565, 54.56435, 54.56435, 54.~
+#> $ score_continuous <dbl> 0.55356305, 0.94396432, 1.21511338, 0.47071783, 1.621~
+#> $ score_discrete   <dbl> 1, 1, 1, 0, 2, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1,~
+#> $ tscore           <dbl> 63.69306, 63.69306, 63.69306, 63.69306, 63.69306, 63.~
 ```
 
 Then step 3 involves just a few extra lines of code to set the seed and
@@ -432,7 +432,7 @@ tic()
 sims2 <- run_simulations(seed = 52, n_sim = 100,
                          n_subjects = 20, delta = 0.3)
 toc()
-#> 3.07 sec elapsed
+#> 2.88 sec elapsed
 ```
 
 Here is an example of unnesting and plotting the T-scores of the first

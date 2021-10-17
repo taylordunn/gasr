@@ -28,6 +28,8 @@ library(stringr)
 With this package, we employ the latent variable approach to generating goal attainment scaling data that was introduced by [@Urach2019].
 Here, we walk through some of the theory behind this model and show how it translates to the various `gasr` functions, but highly recommend any users to read the paper themselves to better understand the model.
 
+## Theory
+
 First, some notation (which we alter slightly from that in @Urach2019).
 Let $n_i \sim D$, where $D$ denotes the distribution of the number of goals chosen by subject $i$.
 The observed goal score for subject $i$'s goal $j$ is denoted $x_{ij}$, and comes from the discretization of their continuous *latent* unobserved goal scores $y_{ij}$.
@@ -232,7 +234,15 @@ d %>%
 ```
 
 The inverse cumulative probability function $\Phi^-1$ is also called the quantile function.
-It returns the values of a random variable corresponds to percentiles:
+It returns the values of a random variable corresponding to percentiles.
+For instance, the quantile function for a $\text{Normal}(0, 1)$ distribution:
+
+```{r}
+qnorm(p = c(0.025, 0.5, 0.975), mean = 0, sd = 1)
+```
+
+The 2.5th and 97.5th percentiles return the familiar $\pm$1.96 values from a typical 95% confidence interval.
+Plot all of the values for the standard normal distribution:
 
 ```{r fig.width=6}
 d <- d %>%
@@ -262,10 +272,10 @@ knitr::kable(thresh)
 ```
 
 Six thresholds corresponds to five discretized attainment levels; $l = 2$ in equation (7).
-To show how this works, consider these randomly sampled latent goal scores $y_{ij}$:
+To show how this works, consider these randomly sampled values from a standard normal distribution:
 
 ```{r fig.width=6}
-y <- rnorm(1000, mean = 0, sd = 1)
+y <- rnorm(100, mean = 0, sd = 1)
 ggplot(data = tibble(y), aes(y)) +
   geom_density() +
   geom_rug() +
@@ -285,11 +295,11 @@ ggplot(data = tibble(x), aes(x)) +
 ```
 
 Note that this results in a uniform distribution of goal scores, which isn't the traditional distribution from GAS theory.
-See (this vignette)[simulation-calibration.html] for more discussion about this topic.
+See the `simulation-calibration` vignette for more discussion about this topic.
 
 </details>
 
-* The number of goals $n_i$ are uniformly distributed on $(1, \dots, n_{\text{max}}$) with $n_{\text{max}} = 5$.
+* The number of goals $n_i$ are uniformly distributed on ($1, \dots, n_{\text{max}}$) with $n_{\text{max}} = 5$.
 * The treatment effects $b_{ij}$ are assumed to be uniformly distributed on $(0, 2\delta)$ for fixed constant $\delta$.
     * $B = U(0, 2\delta)$, $E(b_{ij}) = \delta$, $\text{Var}(b_{ij}) = \frac{\delta^{2/3}}{3}$.
 * The mean response in the control group is set to zero.
@@ -478,7 +488,7 @@ tibble(t = 2:6) %>%
 ```
 
 
-And then, we can `integrate()` equation (11) for different values of $t$ and $delta$ to get the expected values:
+And then, we can `integrate()` equation (11) for different values of $t$ and $\delta$ to get the expected values:
 
 ```{r fig.width=5}
 integrate_phi <- function(t, delta, subdivisions = 1000) {
@@ -576,7 +586,7 @@ where $z_{ij} = u_i + \epsilon_{ij}$ such that $(z_{ij})^{n_i}_{j=1}$ is multiva
 
 Computing these probabilities involves computing a bivariate cumulative normal distribution:
 
-```{r}
+```{r fig.height=6, fig.width=6}
 rho_0 <- 0.3
 var_u <- rho_0
 var_e <- 1 - rho_0
@@ -612,7 +622,8 @@ prob_x1_x2 <- crossing(
 prob_x1_x2 %>%
   ggplot(aes(x = b, y = prob)) +
   geom_line() +
-  facet_grid(x1 ~ x2)
+  facet_grid(x1 ~ x2) +
+  scale_y_continuous(breaks = c(0, 0.5, 1))
 ```
 
 This is showing us that the probability of both $x_{ij}$ (`x1` above) and $x_{ij'}$ (`x2`) are unlikely to be the same (the diagonals above) except for the extreme values of $b$.
@@ -624,7 +635,7 @@ E(x_{ij} x_{ij'}| g_i= g) = \int_B \int_B \sum_{t \in \mathcal{T}} \sum_{t \in \
 $$
 
 ```{r eval=FALSE}
-# Re-define the previous integrade so that b1 and vary separate from b2
+# Re-define the previous integrand so that b1 can vary separately from b2
 calc_bivariate_integrand <- function(b1, b2, t1, t2) {
   pmvnorm(
     lower = c(c_t[t1 - 1] - b1,
@@ -685,6 +696,8 @@ e_x1_x2 <- crossing(
 ```
 
 ```{r echo=FALSE}
+#readr::write_rds(e_x1_x2, "inst/extdata/e-x1-x2.rds")
+
 # To save time while building the vignette, the results of this integration
 #  were saved separately (took about 80 seconds)
 e_x1_x2 <- readr::read_rds(system.file("extdata/e-x1-x2.rds",
@@ -800,7 +813,7 @@ It is helpful to run these functions step-by-step to understand the simulations,
 The `sim_trial()` function does all of the steps in one function:
 
 ```{r}
-set.seed(15)
+set.seed(12)
 
 gas_data <- sim_trial(
   n_subjects = 40, sigma_u = sqrt(var_u),
@@ -882,6 +895,11 @@ gas_sims_ttest <- gas_sims %>%
 (This took about 8.5 minutes to run, for reference).
 
 ```{r echo=FALSE}
+# readr::write_rds(
+#   gas_sims_ttest,
+#   here::here("inst", "extdata", "gas-sims-ttest.rds")
+# )
+
 # To save time while building the vignette, the results of the simulation
 #  were saved separately
 gas_sims_ttest <- readr::read_rds(
@@ -901,6 +919,6 @@ gas_sims_ttest %>% count(p.value < 0.05)
 
 
 A total of `r sum(gas_sims_ttest$p.value < 0.05)` of these simulations (`r scales::percent(mean(gas_sims_ttest$p.value < 0.05))`) returned a $p$ value <0.05.
-And so the power to detect a significant treatment effect in this scenario is 55% when using a $t$-test on per-subject means (which matches the power reported by @Urach2019).
+And so the power to detect a significant treatment effect in this scenario is 57% when using a $t$-test on per-subject means (which is close to the power reported by @Urach2019).
 
 ## References

@@ -25,6 +25,8 @@ library(purrr)
 library(ggplot2)
 ```
 
+## Normal distribution of scores
+
 In their original formulation of goal attainment scaling, @Kiresuk1968 assumed that scores on any well-constructed individual scale would have a theoretical distribution with a mean of zero and a standard deviation of zero.
 
 For the latent goal score formula (see the [model vignette](data-generating-model.html) for more information):
@@ -121,10 +123,21 @@ gas_sims %>%
 
 On the continuous scale, $y_{ij}$ looks to follow the theoretical $N(0, 1)$ distribution well.
 On the discrete scale, however, $x_{ij}$ has a higher standard deviation and wider range of mean values.
+Here is a histogram of discrete scores from all 100 simulations:
+
+```{r fig.height=2.5, fig.width=5}
+gas_sims %>%
+  unnest(data) %>%
+  ggplot(aes(y = factor(score_discrete))) +
+  geom_bar() +
+  labs(y = NULL, title = "Distribution of discrete scores from 100 simulations")
+```
+
+Clearly, this is an approximately uniform distribution of scores.
 
 To approximate an $N(0, 1)$ distribution on the 5-point discretized scale, we require roughly the following distribution of scores (see @Kiresuk1994 p. 199):
 
-```{r echo=FALSE}
+```{r echo=FALSE, fig.height=2.5, fig.width=5}
 d <- tribble(
   ~score_discrete, ~p,
   "-2", 0.07,
@@ -179,28 +192,28 @@ thresh <- tibble(
   percentile = t * 0.2,
   c_t = stats::qnorm(percentile, mean = 0, sd = 1) %>% round(2)
 )
-thresh %>%
-  kable()
+kable(thresh)
 ```
 
 Applying these cuts to a standard normal distribution will result in approximately equal proportions among the quintiles:
 
-```{r}
+```{r fig.height=2.5, fig.width=5}
 d <- tibble(x_continuous = rnorm(1e4, mean = 0, sd = 1))
 
 d %>%
   mutate(x_discrete = cut(x_continuous, breaks = thresh$c_t)) %>%
   count(x_discrete) %>%
   mutate(p = n / sum(n)) %>%
-  ggplot(aes(x = x_discrete, y = n)) +
+  ggplot(aes(y = x_discrete, x = n)) +
   geom_text(aes(label = scales::percent(p, accuracy = 0.1)),
-             vjust = 0, nudge_y = 50) +
-  geom_col()
+            hjust = 0, nudge_x = 2) +
+  geom_col() +
+  xlim(c(0, 2300))
 ```
 
 We can impose the approximate normal distribution by re-defining the cutpoints on the inverse cumulative normal distribution:
 
-```{r}
+```{r fig.height=2.5, fig.width=5}
 thresh <- tibble(
   t = 0:5,
   percentile = c(0, 0.07, 0.28, 0.72, 0.93, 1),
@@ -212,14 +225,15 @@ d %>%
   mutate(x_discrete = cut(x_continuous, breaks = thresh$c_t)) %>%
   count(x_discrete) %>%
   mutate(p = n / sum(n)) %>%
-  ggplot(aes(x = x_discrete, y = n)) +
+  ggplot(aes(y = x_discrete, x = n)) +
   geom_text(aes(label = scales::percent(p, accuracy = 0.1)),
-             vjust = 0, nudge_y = 50) +
-  geom_col()
+            hjust = 0, nudge_x = 10) +
+  geom_col() +
+  xlim(c(0, 5000))
 ```
 
 This type of calibration is not just a numerical/theoretical exercise.
-Setting realistic attainment levels is a an important skill of a GAS interviewer, and can have important implication on the interpreation of GAS scores.
+Setting realistic attainment levels is a an important skill of a GAS interviewer, and can have important implication on the interpretation of GAS scores.
 
 By default, the `create_thresholds()` function will return thresholds that attempt to approximate a normal distribution:
 
@@ -310,5 +324,9 @@ gas_sims %>%
 ## Treatment effect size
 
 TBD: translate effect sizes on the latent variable scale to the discretized scale (including T-scores).
+
+## Inter-correlation of goal scores
+
+TBD: empirically measure the correlation between goals of the same subject, and translate to simulated correlation.
 
 ## References
