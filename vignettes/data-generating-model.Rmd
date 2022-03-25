@@ -342,7 +342,7 @@ d <- tibble(
   sim = 1:100,
   data = map(
     sim,
-    ~sim_trial(n_subjects = 40, delta = 1,
+    ~sim_trial(n_subjects = 40, delta = 1, mean_control_response = 0,
                # Setting rho_0 = 0.3
                sigma_u = sqrt(0.7), sigma_e = sqrt(0.3))
   )
@@ -761,23 +761,23 @@ gas_data <- gas_data %>%
 glimpse(gas_data)
 ```
 
-Assign a uniform distribution treatment effect with $\delta$ = 0.5.
+Assign a uniform distribution treatment effect with $\delta$ = 0.3.
 
 ```{r}
 gas_data <- gas_data %>%
-  sim_treatment_effect(delta = 0.5)
+  sim_treatment_effect(delta = 0.3)
 glimpse(gas_data)
 ```
 
 The goal weights could be added here with `sim_goal_weights`, but we'll leave them unweighted for this example.
 
-Calculate the latent goal scores by summing up the random effects (`subject_re` = $u_i$, `goal_re` = $\epsilon_{ij}$) and fixed effects (`treatment_fe` = $b_{ij}$, no control group response $b_0$):
+Calculate the latent goal scores by summing up the random effects (`subject_re` = $u_i$, `goal_re` = $\epsilon_{ij}$) and fixed effects (`treatment_fe` = $b_{ij}$, and a negative control group response $b_0$ = -0.3):
 
 ```{r}
 gas_data <- gas_data %>%
   mutate(
     score_continuous = subject_re + goal_re +
-      ifelse(group == "treatment", treatment_fe, 0)
+      ifelse(group == "treatment", treatment_fe, -0.3)
   )
 ```
 
@@ -820,7 +820,7 @@ gas_data <- sim_trial(
   group_allocation = list("control" = 0.5, "treatment" = 0.5),
   random_allocation = FALSE,
   n_goals_range = c(1, 5), sigma_e = sqrt(var_e),
-  delta = 0.5,
+  delta = 0.3, mean_control_response = -0.3,
   n_levels = 5
 )
 glimpse(gas_data)
@@ -850,7 +850,7 @@ t.test(
 )
 ```
 
-In this case, the difference was not statistically significant at $\alpha = 0.05$.
+In this case, the difference was statistically significant at $\alpha = 0.05$.
 
 We can repeat this, say, 10000 times, run $t$-tests, and get the $p$ values:
 
@@ -869,7 +869,7 @@ gas_sims <-
         group_allocation = list("control" = 0.5, "treatment" = 0.5),
         random_allocation = FALSE,
         n_goals_range = c(1, 5), sigma_e = sqrt(var_e),
-        delta = 0.5,
+        delta = 0.3, mean_control_response = -0.3,
         n_levels = 5
       ) %>%
         group_by(subject_id, group) %>%
@@ -892,7 +892,7 @@ gas_sims_ttest <- gas_sims %>%
   unnest(ttest)
 ```
 
-(This took about 8.5 minutes to run, for reference).
+(This took about 8 minutes to run, for reference).
 
 ```{r echo=FALSE}
 # readr::write_rds(
@@ -919,6 +919,8 @@ gas_sims_ttest %>% count(p.value < 0.05)
 
 
 A total of `r sum(gas_sims_ttest$p.value < 0.05)` of these simulations (`r scales::percent(mean(gas_sims_ttest$p.value < 0.05))`) returned a $p$ value <0.05.
-And so the power to detect a significant treatment effect in this scenario is 57% when using a $t$-test on per-subject means (which is close to the power reported by @Urach2019).
+And so the power to detect a significant treatment effect in this scenario is
+`r scales::percent(mean(gas_sims_ttest$p.value < 0.05))`
+when using a $t$-test on per-subject means.
 
 ## References

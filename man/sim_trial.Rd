@@ -14,6 +14,7 @@ sim_trial(
   n_goals_prob = NULL,
   sigma_e = 0.5,
   delta = 0.3,
+  mean_control_response = -0.3,
   weight_type = "unweighted",
   n_levels = 5,
   score_dist = "norm",
@@ -51,6 +52,8 @@ each number. For example:
 the random error of each latent goal score.}
 
 \item{delta}{The size of the treatment effect.}
+
+\item{mean_control_response}{The mean response in the control group.}
 
 \item{weight_type}{The type of weights to apply. See 'Details'.}
 

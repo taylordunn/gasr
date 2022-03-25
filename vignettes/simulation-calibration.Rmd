@@ -137,7 +137,7 @@ Clearly, this is an approximately uniform distribution of scores.
 
 To approximate an $N(0, 1)$ distribution on the 5-point discretized scale, we require roughly the following distribution of scores (see @Kiresuk1994 p. 199):
 
-```{r echo=FALSE, fig.height=2.5, fig.width=5}
+```{r echo=FALSE, fig.height=2.5, fig.width=6}
 d <- tribble(
   ~score_discrete, ~p,
   "-2", 0.07,
@@ -322,6 +322,11 @@ gas_sims %>%
 
 
 ## Treatment effect size
+
+```{r}
+gas_sims
+```
+
 
 TBD: translate effect sizes on the latent variable scale to the discretized scale (including T-scores).
 

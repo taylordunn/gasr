@@ -16,6 +16,8 @@ knitr::opts_chunk$set(
 )
 ```
 
+This vignette is still under construction.
+
 ```{r setup}
 library(gasr)
 library(dplyr)
@@ -133,24 +135,12 @@ $$
 $$
 
 ```{r}
-
-```
-
-
-```{r}
 aov(score_continuous ~ subject_id, data = gas_data) %>%
   summary()
 ```
 
-
-```{r}
-gas_data
-```
-
-
-
-When the number of 
-
 @Streiner2008
+
+TBD
 
 ## References

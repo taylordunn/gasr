@@ -1,6 +1,6 @@
 Package: gasr
 Title: Simulate and Analyze Goal Attainment Scaling Data
-Version: 0.5.0
+Version: 0.5.1
 Authors@R: 
     person(given = "Taylor",
            family = "Dunn",
@@ -13,6 +13,7 @@ License: MIT + file LICENSE
 Suggests: 
     forcats,
     knitr,
+    mvtnorm,
     readr,
     rmarkdown,
     testthat (>= 3.0.0)

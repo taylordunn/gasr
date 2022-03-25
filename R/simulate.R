@@ -264,6 +264,8 @@ sim_goal_weights <- function(
 
 #' Simulate a single cross-sectional trial
 #'
+#' @param mean_control_response The mean response in the control group.
+#'
 #' @return A data frame with a row per trial (numbered 1 to `n_sim`) with
 #'   list column` data` containing the simulated data.
 #' @export
@@ -281,7 +283,8 @@ sim_trial <- function(
   group_allocation =  list("control" = 0.5, "treatment" = 0.5),
   random_allocation = TRUE,
   n_goals = NULL, n_goals_range = c(3, 6), n_goals_prob = NULL,
-  sigma_e = 0.5, delta = 0.3, weight_type = "unweighted",
+  sigma_e = 0.5, delta = 0.3, mean_control_response = -0.3,
+  weight_type = "unweighted",
   n_levels = 5, score_dist = "norm", centre = 0
 ) {
   if (!is.null(n_goals) | !is.null(n_goals_prob)) {
@@ -298,7 +301,7 @@ sim_trial <- function(
     sim_goal_weights(weight_type) %>%
     dplyr::mutate(
       score_continuous = ifelse(.data$group == "treatment",
-                                .data$treatment_fe, 0) +
+                                .data$treatment_fe, mean_control_response) +
         .data$subject_re + .data$goal_re,
       score_discrete = discretize_from_thresholds(.data$score_continuous,
                                                   thresh),
